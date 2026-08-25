@@ -2107,6 +2107,23 @@ button:disabled,
 .settings-note { margin-top: var(--space-5); }
 .settings-note p { margin: 0; color: var(--color-text-muted); font-size: 13px; line-height: 1.6; }
 .settings-note code { background: var(--color-bg-alt, rgba(127,127,127,0.12)); padding: 1px 5px; border-radius: 4px; font-size: 12px; }
+
+/* "持续评测" button on a task row + focus highlight on the pipeline card */
+.btn-small.pipeline {
+    background: var(--color-info);
+    color: #fff;
+}
+.btn-small.pipeline:hover { filter: brightness(1.08); }
+.pipeline-card-focus {
+    animation: pipelineCardPulse 1.6s ease-out;
+    box-shadow: 0 0 0 3px color-mix(in srgb, var(--color-info) 35%, transparent);
+    border-radius: var(--radius-md);
+}
+@keyframes pipelineCardPulse {
+    0%   { box-shadow: 0 0 0 0 color-mix(in srgb, var(--color-info) 55%, transparent); }
+    70%  { box-shadow: 0 0 0 10px color-mix(in srgb, var(--color-info) 0%, transparent); }
+    100% { box-shadow: 0 0 0 0 color-mix(in srgb, var(--color-info) 0%, transparent); }
+}
 .card-hint {
     color: var(--color-text-muted);
     font-size: 13px;

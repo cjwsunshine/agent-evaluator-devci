@@ -306,10 +306,27 @@ def list_targets(user_id) -> dict[str, Any]:
                 "metric": s.get("metric"),
                 "agent_name": s.get("agent_name"),
             })
+
+    # If the active target points at a synthetic source (e.g. an ad-hoc set of
+    # cases materialized from a 评测任务), surface it as a selectable option so
+    # the dropdown correctly shows what this build will run against.
+    active = _load_target()
+    active_set_id = str(active.get("evalset_id") or "")
+    if active_set_id and not any(s["id"] == active_set_id for s in sets):
+        sets.append({
+            "id": active_set_id,
+            "name": active.get("evalset_name") or active_set_id,
+            "count": active.get("case_count"),
+            "tool": active.get("tool"),
+            "metric": active.get("metric"),
+            "agent_name": active.get("agent_name"),
+            "synthetic": True,
+        })
+
     return {
         "agents": agents,
         "evaluation_sets": sets,
-        "active": _load_target(),
+        "active": active,
     }
 
 
@@ -360,6 +377,43 @@ def _agent_descriptor(agent) -> dict[str, Any]:
     return desc
 
 
+def _cases_for_task(task) -> list[dict[str, Any]]:
+    """Build pipeline cases for a 评测任务, using the TASK's declared tool(s)
+    as authoritative. Per-case rows may carry a stale/different tool label on
+    legacy data, so we re-key the metric to the task's intent here.
+    """
+    rows = [tc.test_case for tc in task.task_cases if tc.test_case]
+    if not rows:
+        raise ValueError("该评测任务没有用例")
+
+    task_tools = [t for t in (task.tools or "").split(",") if t]
+    if not task_tools and task.evaluation_tool:
+        task_tools = [task.evaluation_tool]
+    # If the task somehow declares no tool, fall back to each row's own label.
+    if not task_tools:
+        return [_db_case_to_pipeline(c) for c in rows]
+
+    out: list[dict[str, Any]] = []
+    for case in rows:
+        metric = case.metric or "task_completion"
+        metrics: dict[str, Any] = {}
+        for tool in task_tools:
+            if tool == "promptfoo":
+                metrics["promptfoo_assert"] = {"type": "contains", "value": case.expected or ""}
+            else:
+                metrics[tool] = metric
+        out.append({
+            "id": f"case-{case.id}",
+            "name": case.name or f"case-{case.id}",
+            "query": case.query or "",
+            "expected": case.expected or "",
+            "input_payload": case.input_payload,
+            "expected_payload": case.expected_payload,
+            "metrics": metrics,
+        })
+    return out
+
+
 def _db_case_to_pipeline(case) -> dict[str, Any]:
     """Convert a platform TestCase row into the pipeline case schema."""
     tool = (case.evaluation_tool or "deepeval").lower()
@@ -388,6 +442,18 @@ def _cases_for_evalset(user_id, evalset_id: str) -> list[dict[str, Any]]:
     if evalset_id == "builtin":
         with open(TEST_CASES_PATH, "r", encoding="utf-8") as f:
             return json.load(f)
+
+    if str(evalset_id).startswith("task-"):
+        # Synthetic set materialized from a specific 评测任务 (its exact cases).
+        try:
+            task_id = int(str(evalset_id)[len("task-"):])
+        except ValueError:
+            raise ValueError("评测集不存在")
+        from app.models.models import EvaluationTask
+        task = EvaluationTask.query.filter_by(id=task_id, user_id=user_id).first()
+        if not task:
+            raise ValueError("评测任务不存在")
+        return _cases_for_task(task)
 
     if str(evalset_id).startswith("orphan-"):
         # Virtual grouping produced by TestCaseService: orphan-<agent_id>-<tool>::<metric>
@@ -438,9 +504,16 @@ def save_target(user_id, agent_id: str, evalset_id: str) -> dict[str, Any]:
     cases = _cases_for_evalset(user_id, evalset_id)
     if evalset_id == "builtin":
         evalset_name = BUILTIN_CASES["name"]
+    elif str(evalset_id).startswith(("task-", "orphan-")):
+        # Synthetic source (a 评测任务 or orphan grouping) — caller supplies
+        # a friendly name; fall back to a generic label here.
+        evalset_name = f"评测集 #{evalset_id}"
     else:
         from app.models.models import EvaluationSet
-        es = EvaluationSet.query.filter_by(id=int(evalset_id)).first()
+        try:
+            es = EvaluationSet.query.filter_by(id=int(evalset_id)).first()
+        except ValueError:
+            es = None
         evalset_name = es.name if es else f"评测集 #{evalset_id}"
 
     with open(ACTIVE_AGENT_PATH, "w", encoding="utf-8") as f:
@@ -456,6 +529,74 @@ def save_target(user_id, agent_id: str, evalset_id: str) -> dict[str, Any]:
     }
     with open(TARGET_PATH, "w", encoding="utf-8") as f:
         json.dump(target, f, ensure_ascii=False, indent=2)
+    return target
+
+
+def save_target_from_task(user_id, task_id: int) -> dict[str, Any]:
+    """Materialize a 评测任务's exact agent + cases as the pipeline target.
+
+    Used by the "持续评测" button on the 评测任务 page. Also pre-ticks the
+    selection (tool enable + metrics) to match the task's cases, so the user
+    lands directly on the metrics step ready to trigger.
+    """
+    from app.models.models import EvaluationTask
+    task = EvaluationTask.query.filter_by(id=task_id, user_id=user_id).first()
+    if not task:
+        raise ValueError("评测任务不存在")
+
+    evalset_id = f"task-{task_id}"
+    cases = _cases_for_evalset(user_id, evalset_id)
+
+    # Materialize target (agent + cases), reusing save_target's file writes.
+    target = save_target(user_id, str(task.agent_id), evalset_id)
+
+    # Determine the task's tools from its own declaration (authoritative),
+    # falling back to what the cases claim. Per-case labels can be inconsistent
+    # on legacy rows, so the task's tools/evaluation_tool take precedence.
+    task_tools = [t for t in (task.tools or "").split(",") if t]
+    if not task_tools and task.evaluation_tool:
+        task_tools = [task.evaluation_tool]
+    case_tools: set[str] = set()
+    tool_metric: dict[str, set[str]] = {}
+    for c in cases:
+        for tname, mval in (c.get("metrics") or {}).items():
+            if tname == "promptfoo_assert":
+                mname = mval.get("type") if isinstance(mval, dict) else mval
+                tkey = "promptfoo"
+            else:
+                mname = mval
+                tkey = tname
+            if tkey:
+                case_tools.add(tkey)
+            if mname and tkey:
+                tool_metric.setdefault(tkey, set()).add(str(mname))
+    tools_to_enable = list(dict.fromkeys(task_tools + sorted(case_tools - set(task_tools))))
+
+    target.update({
+        "source": "task",
+        "task_id": task_id,
+        "task_name": task.name,
+        "evalset_name": f'来自评测任务：{task.name}',
+        "tool": ",".join(sorted(tool_metric)),
+        "metric": "、".join(sorted({m for ms in tool_metric.values() for m in ms})),
+    })
+    with open(TARGET_PATH, "w", encoding="utf-8") as f:
+        json.dump(target, f, ensure_ascii=False, indent=2)
+
+    # Pre-tick selection: enable only the tools the task uses, with its metrics
+    # selected (other tools disabled), so step ② reflects the task directly.
+    selection = _default_selection()
+    for tname in METRIC_CATALOG:
+        metrics = sorted(
+            m for m in tool_metric.get(tname, set())
+            if m in {c["name"] for c in METRIC_CATALOG[tname]}
+        )
+        selection[tname] = {"enabled": bool(metrics), "metrics": metrics}
+    SELECTION_PATH.parent.mkdir(parents=True, exist_ok=True)
+    with open(SELECTION_PATH, "w", encoding="utf-8") as f:
+        json.dump(selection, f, ensure_ascii=False, indent=2)
+    target["selection"] = selection
+
     return target
 
 

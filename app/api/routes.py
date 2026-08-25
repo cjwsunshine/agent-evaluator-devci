@@ -529,6 +529,19 @@ def save_pipeline_target():
         return jsonify({'success': False, 'message': f'保存失败: {e}'}), 400
 
 
+@api_bp.route('/pipeline/target/from-task/<int:task_id>', methods=['POST'])
+@auth_required
+def save_pipeline_target_from_task(task_id):
+    """把某个评测任务的 Agent + 用例直接设为持续评测对象，并预选其工具/指标。"""
+    from app.services.pipeline_service import save_target_from_task
+    user_id = request.environ.get('X-User-Id')
+    try:
+        saved = save_target_from_task(user_id, task_id)
+        return jsonify({'success': True, 'message': '已带入持续评测', 'data': saved})
+    except Exception as e:
+        return jsonify({'success': False, 'message': str(e)}), 400
+
+
 @api_bp.route('/pipeline/selection', methods=['PUT'])
 @auth_required
 def save_pipeline_selection():

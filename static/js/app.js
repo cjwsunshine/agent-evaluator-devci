@@ -2122,6 +2122,7 @@ function renderTaskTable() {
                 ${task.status === 'running' ? `<button class="btn-small warning" onclick="cancelTask(${task.id})">取消</button>` : ''}
                 <button class="btn-small primary" onclick="viewProgress(${task.id})">执行日志</button>
                 ${task.status === 'completed' ? `<button class="btn-small primary" onclick="viewReport(${task.id})">查看报告</button>` : ''}
+                <button class="btn-small pipeline" onclick="sendTaskToPipeline(${task.id})" title="带入该任务的 Agent 与用例到持续评测">持续评测</button>
                 ${task.status !== 'running' ? `<button class="btn-small danger" onclick="deleteTask(${task.id})">删除</button>` : ''}
             </td>
         </tr>
@@ -2204,6 +2205,24 @@ async function startTask(id) {
         loadTasks();
     } catch (error) {
         showRunError(error.message || '启动任务失败');
+    }
+}
+
+// Set by sendTaskToPipeline so loadPipelinePage scrolls to / highlights the
+// metrics-selection card (step ②) after navigating to the pipeline page.
+let pipelineFocusCard = null;
+
+async function sendTaskToPipeline(taskId) {
+    try {
+        const result = await apiCall(`/pipeline/target/from-task/${taskId}`, 'POST');
+        if (!result.success) throw new Error(result.message || '带入失败');
+        const d = result.data || {};
+        showToast(`已带入：${d.agent_name || ''} / ${d.case_count || 0} 条用例，可直接勾选指标`, 'success');
+        // After the pipeline page loads, scroll to the metrics (tool/metric) card.
+        pipelineFocusCard = 'selection';
+        navigateTo('pipeline');
+    } catch (error) {
+        showToast(error.message || '带入持续评测失败', 'error');
     }
 }
 
@@ -3309,6 +3328,17 @@ const PIPELINE_STEP_LABELS = {
 
 async function loadPipelinePage() {
     await Promise.all([loadPipelineTarget(), loadPipelineSelection(), loadPipelineHistory(), loadPipelineLatestReport()]);
+    // When arriving from a task's "持续评测" button, scroll to / highlight the
+    // metrics-selection card (the agent+evalset were already auto-saved).
+    if (pipelineFocusCard === 'selection') {
+        pipelineFocusCard = null;
+        const card = document.getElementById('pipeline-selection-card');
+        if (card) {
+            card.scrollIntoView({ behavior: 'smooth', block: 'start' });
+            card.classList.add('pipeline-card-focus');
+            setTimeout(() => card.classList.remove('pipeline-card-focus'), 2500);
+        }
+    }
 }
 
 // ---------------- 被测对象：Agent + 评测集 ----------------
