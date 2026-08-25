@@ -51,3 +51,6 @@ app.log
 /pikoci
 /pikoci-*
 promptfooconfig.yaml
+
+# Local Claude Code settings
+.claude/
