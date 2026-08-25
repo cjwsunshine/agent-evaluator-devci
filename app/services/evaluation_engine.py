@@ -296,6 +296,8 @@ class DeepEvalEvaluator(BaseEvaluator):
                 item['requires_trace'] = True
             if spec.get('requires_messages'):
                 item['requires_messages'] = True
+            if spec.get('requires_intent'):
+                item['requires_intent'] = True
             defs.append(item)
         return defs
 
@@ -304,6 +306,7 @@ class DeepEvalEvaluator(BaseEvaluator):
         """给需要执行轨迹/多轮历史的指标在描述末尾追加提示，让前端文案自动带上说明。"""
         trace_note = '（需 agent 在返回 dict 中包含 trace.steps 执行轨迹，否则无法评测）'
         msg_note = '（需在用例 input_payload 中提供 messages 多轮历史，否则无法评测）'
+        intent_note = '（需在用例 expected_payload 中声明 expected_intent 期望意图；agent 可在返回 dict 中带 intent 字段）'
         for metric in metrics:
             if metric.get('requires_trace'):
                 desc = metric.get('description') or ''
@@ -313,6 +316,10 @@ class DeepEvalEvaluator(BaseEvaluator):
                 desc = metric.get('description') or ''
                 if msg_note not in desc:
                     metric['description'] = desc + msg_note
+            if metric.get('requires_intent'):
+                desc = metric.get('description') or ''
+                if intent_note not in desc:
+                    metric['description'] = desc + intent_note
         return metrics
 
     @staticmethod
@@ -421,6 +428,7 @@ class DeepEvalEvaluator(BaseEvaluator):
                     judge, metric,
                     expectation=expectation,
                     input_payload=input_payload,
+                    expected_payload=expected_payload,
                     agent_payload=agent_payload,
                     trace_dict=trace_dict,
                 )
@@ -480,6 +488,20 @@ class DeepEvalEvaluator(BaseEvaluator):
                 warnings.append(warning)
                 reason = f'{warning}（deepeval 原始理由：{reason}）' if reason else warning
 
+            # 意图识别指标但用例未声明 expected_intent：不阻断，提示分数不可靠。
+            if (
+                metric in _INTENT_DEPENDENT_METRICS
+                and not (isinstance(expected_payload, dict) and
+                         (expected_payload.get('expected_intent') or expected_payload.get('intents')))
+            ):
+                warning = (
+                    f'指标 {metric} 需要期望意图，但本次用例的 expected_payload 中没有 expected_intent/intents。'
+                    '裁判缺少判定目标，分数仅供参考。如需真实评估，请在用例 expected_payload 中声明 '
+                    'expected_intent（及可选的 intents 候选列表）。'
+                )
+                warnings.append(warning)
+                reason = f'{warning}（deepeval 原始理由：{reason}）' if reason else warning
+
             return score, status, error_message, {
                 'query': query,
                 'expected': expectation,
@@ -532,6 +554,9 @@ _TRACE_DEPENDENT_METRICS = {
 
 # 预置 GEval 指标中需要多轮对话历史（input_payload.messages）的指标
 _MESSAGES_DEPENDENT_METRICS = {'multi_turn_coherence'}
+
+# 预置 GEval 指标中需要期望意图（expected_payload.expected_intent）的指标
+_INTENT_DEPENDENT_METRICS = {'intent_recognition'}
 
 
 def _to_deepeval_tool_calls(calls):
@@ -862,6 +887,20 @@ _PRESET_GEVAL: Dict[str, Dict[str, Any]] = {
         'params': ('INPUT', 'ACTUAL_OUTPUT', 'EXPECTED_OUTPUT'),
         'requires_messages': True,
     },
+    # —— 意图识别 ——
+    'intent_recognition': {
+        'label': '意图识别准确率',
+        'criteria': (
+            '评估 Agent 是否把用户输入正确识别/路由到了【期望意图】。'
+            '若 Agent 输出中显式给出了识别到的意图标签，应与期望意图一致；'
+            '若未显式给出标签，则根据其回答内容、所选工具/动作及执行轨迹判断其实际处理意图是否与期望意图一致。'
+            '意图识别完全正确、后续动作与该意图匹配得高分（接近1）；'
+            '识别成明显错误的意图、答非所问、或路由到错误工具/流程得低分（接近0）；'
+            '部分相关或意图大体正确但细节有偏，酌情给中间分。'
+        ),
+        'params': ('INPUT', 'ACTUAL_OUTPUT', 'EXPECTED_OUTPUT'),
+        'requires_intent': True,
+    },
 }
 
 _PRESET_GEVAL_METRICS = set(_PRESET_GEVAL.keys())
@@ -910,16 +949,68 @@ def _serialize_trace(trace_dict: Any) -> str | None:
     return '\n'.join(lines)
 
 
+def _extract_agent_intent(agent_payload: Any, trace_dict: Any) -> str | None:
+    """从 agent 返回结构中尽力提取其识别到的意图标签/路由信息。"""
+    candidates: list[str] = []
+    if isinstance(agent_payload, dict):
+        for key in ('intent', 'recognized_intent', 'intent_name', 'route', 'routing', 'detected_intent'):
+            v = agent_payload.get(key)
+            if v:
+                candidates.append(str(v))
+    if not candidates and isinstance(trace_dict, dict):
+        steps = trace_dict.get('steps')
+        if isinstance(steps, list) and steps:
+            first = steps[0]
+            if isinstance(first, dict):
+                for key in ('action', 'tool', 'intent', 'name'):
+                    v = first.get(key)
+                    if v:
+                        candidates.append(str(v))
+                        break
+    return candidates[0] if candidates else None
+
+
+def _serialize_intent(expected_payload: Any, agent_payload: Any, trace_dict: Any) -> str | None:
+    """组装意图识别裁判需要的【期望意图】与【Agent 实际识别意图】证据文本。"""
+    expected_intent = None
+    intents_list = None
+    if isinstance(expected_payload, dict):
+        expected_intent = (
+            expected_payload.get('expected_intent')
+            or expected_payload.get('intent')
+            or expected_payload.get('expectedIntent')
+        )
+        intents_list = (
+            expected_payload.get('intents')
+            or expected_payload.get('intent_candidates')
+            or expected_payload.get('candidate_intents')
+        )
+    if not expected_intent and not intents_list:
+        return None
+    lines = []
+    if expected_intent:
+        lines.append(f'期望意图：{expected_intent}')
+    if isinstance(intents_list, list) and intents_list:
+        lines.append(f'可选意图集合：{", ".join(str(x) for x in intents_list)}')
+    agent_intent = _extract_agent_intent(agent_payload, trace_dict)
+    if agent_intent:
+        lines.append(f'Agent 识别到的意图：{agent_intent}')
+    else:
+        lines.append('Agent 未显式返回意图标签，请依据其回答内容与执行动作判断实际处理意图。')
+    return '\n'.join(lines)
+
+
 def _build_preset_geval(
     judge,
     metric: str,
     *,
     expectation: str,
     input_payload: Any,
-    agent_payload: Any,
-    trace_dict: Any,
+    expected_payload: Any = None,
+    agent_payload: Any = None,
+    trace_dict: Any = None,
 ):
-    """构造一个预置准则的 GEval 指标实例，必要时把轨迹/多轮历史注入 criteria。"""
+    """构造一个预置准则的 GEval 指标实例，必要时把轨迹/多轮历史/意图等结构化证据注入 criteria。"""
     from deepeval.metrics import GEval
 
     spec = _PRESET_GEVAL[metric]
@@ -935,6 +1026,10 @@ def _build_preset_geval(
         msg_text = _serialize_messages(input_payload)
         if msg_text:
             extras.append(f'【多轮对话历史】\n{msg_text}')
+    if spec.get('requires_intent'):
+        intent_text = _serialize_intent(expected_payload, agent_payload, trace_dict)
+        if intent_text:
+            extras.append(f'【意图信息】\n{intent_text}')
     if extras:
         criteria = criteria + '\n\n' + '\n\n'.join(extras)
 

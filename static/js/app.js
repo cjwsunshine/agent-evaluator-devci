@@ -1676,6 +1676,8 @@ function getTestCaseSample(scope) {
             error_recovery: { name: '错误恢复样例(需trace)', query: '查询不存在的城市“XX市”的天气并给出穿衣建议', expected: '工具返回错误/无结果时，Agent 应识别问题、换路或澄清后恢复完成，而非崩溃或反复失败。注意：需 Agent 返回 trace.steps，否则只给警告', tags: 'trajectory,error_recovery' },
             // 多轮理解：需在 input_payload.messages 中提供对话历史
             multi_turn_coherence: { name: '多轮上下文理解样例(需messages)', query: '那我应该几点出发去机场？', expected: '应正确承接前文中的航班时间和出发地，回答一致，不丢失上下文', tags: 'multiturn,multi_turn_coherence', input_payload: { messages: [ { role: 'user', content: '我明天早上8点的航班从浦东出发。' }, { role: 'assistant', content: '好的，已记录你明天8点从浦东机场出发。' }, { role: 'user', content: '从虹桥过去大概要多久？' }, { role: 'assistant', content: '虹桥到浦东机场打车约1小时。' } ] } },
+            // 意图识别：在 expected_payload.expected_intent 声明期望意图（可选 intents 给候选集合）
+            intent_recognition: { name: '意图识别样例(需expected_intent)', query: '帮我查一下上海到北京明天的高铁票', expected: '应识别为"订票/车票查询"意图并据此处理，而非闲聊或天气查询', tags: 'intent,intent_recognition', expected_payload: { expected_intent: 'book_ticket', intents: ['greeting', 'query_weather', 'book_ticket', 'refund_ticket', 'chitchat'] } },
             // 测试阶段
             task_success_rate: { name: 'DeepEval任务成功率样例', query: '帮我计算 100 的平方根', expected: '10', tags: 'math,task_success_rate' },
             instruction_following: { name: 'DeepEval指令遵循度回归样例', query: '只用 JSON 回答：今天广州气温是多少', expected: '严格 JSON 格式，仅包含 city 与 temperature 字段', tags: 'format,instruction_following' },

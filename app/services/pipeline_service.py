@@ -94,6 +94,7 @@ METRIC_CATALOG: dict[str, list[dict[str, str]]] = {
         {"name": "trajectory_coherence", "label": "轨迹连贯 (需trace)"},
         {"name": "error_recovery", "label": "错误恢复 (需trace)"},
         {"name": "multi_turn_coherence", "label": "多轮上下文理解 (需messages)"},
+        {"name": "intent_recognition", "label": "意图识别准确率 (需expected_intent)"},
     ],
     "trulens": [
         {"name": "answer_relevance", "label": "回答相关性"},

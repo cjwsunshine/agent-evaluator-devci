@@ -77,6 +77,7 @@ METRIC_LABELS = {
     "trajectory_coherence": "轨迹连贯",
     "error_recovery": "错误恢复",
     "multi_turn_coherence": "多轮上下文理解",
+    "intent_recognition": "意图识别准确率",
 }
 
 
