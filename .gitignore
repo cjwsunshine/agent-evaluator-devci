@@ -1,0 +1,53 @@
+# Python
+__pycache__/
+*.py[cod]
+*$py.class
+*.egg-info/
+.pytest_cache/
+.venv/
+venv/
+.trulens-venv/
+
+# Node
+node_modules/
+
+# Environment / secrets
+.env
+.env.local
+instance/system_config.json
+# 持续评测运行时落盘的被测对象（agent.json 可能含 API 密钥头，cases.json 为临时产物）
+instance/pipeline/
+
+# Databases
+*.db
+*.sqlite
+*.sqlite3
+*.bak
+*.bak-*
+
+# Pipeline output
+eval_output/
+results/
+
+# Agent uploads (runtime)
+agents_uploads/
+test_cases_uploads/
+
+# Logs
+*.log
+flask.log
+app.log
+
+# OS / editor
+.DS_Store
+.idea/
+.vscode/
+*.swp
+
+# DeepEval
+.deepeval/
+
+# PikoCI binary (if downloaded into project root)
+/pikoci
+/pikoci-*
+promptfooconfig.yaml

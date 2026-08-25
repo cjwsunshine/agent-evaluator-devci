@@ -1,0 +1,102 @@
+[
+  {
+    "id": "greeting",
+    "name": "问候测试",
+    "query": "你好",
+    "expected": "你好",
+    "input_payload": null,
+    "expected_payload": null,
+    "metrics": {
+      "deepeval": "task_completion",
+      "trulens": "answer_relevance",
+      "promptfoo_assert": {
+        "type": "contains",
+        "value": "你好"
+      }
+    }
+  },
+  {
+    "id": "weather",
+    "name": "天气查询（工具调用）",
+    "query": "今天天气怎么样？",
+    "expected": "天气",
+    "input_payload": null,
+    "expected_payload": {
+      "expected_tool_calls": [
+        {
+          "name": "get_weather",
+          "arguments": {
+            "city": "上海"
+          }
+        }
+      ]
+    },
+    "metrics": {
+      "deepeval": "tool_correctness",
+      "trulens": "answer_relevance",
+      "promptfoo_assert": {
+        "type": "contains",
+        "value": "天气"
+      }
+    }
+  },
+  {
+    "id": "weather_context",
+    "name": "天气-上下文相关性/Groundedness",
+    "query": "北京今天多少度？",
+    "expected": "气温",
+    "input_payload": {
+      "context": "北京市气象台：晴，气温28℃，湿度60%。"
+    },
+    "expected_payload": null,
+    "metrics": {
+      "deepeval": "hallucination",
+      "trulens": "groundedness",
+      "promptfoo_assert": {
+        "type": "contains",
+        "value": "28"
+      }
+    }
+  },
+  {
+    "id": "math",
+    "name": "数学计算（工具调用）",
+    "query": "请计算 2 + 2",
+    "expected": "4",
+    "input_payload": null,
+    "expected_payload": {
+      "expected_tool_calls": [
+        {
+          "name": "calculate",
+          "arguments": {
+            "expression": "2 + 2"
+          }
+        }
+      ]
+    },
+    "metrics": {
+      "deepeval": "tool_correctness",
+      "trulens": "answer_relevance",
+      "promptfoo_assert": {
+        "type": "contains",
+        "value": "4"
+      }
+    }
+  },
+  {
+    "id": "time",
+    "name": "时间查询",
+    "query": "现在几点了？",
+    "expected": "时间",
+    "input_payload": null,
+    "expected_payload": null,
+    "metrics": {
+      "deepeval": "task_completion",
+      "trulens": "answer_relevance",
+      "promptfoo_assert": {
+        "type": "contains",
+        "value": "时间"
+      }
+    }
+  }
+]

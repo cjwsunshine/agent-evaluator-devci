@@ -1,0 +1,18 @@
+{
+  "deepeval": {
+    "enabled": true,
+    "metrics": []
+  },
+  "trulens": {
+    "enabled": false,
+    "metrics": []
+  },
+  "promptfoo": {
+    "enabled": false,
+    "metrics": []
+  },
+  "ragas": {
+    "enabled": false,
+    "metrics": []
+  }
+}

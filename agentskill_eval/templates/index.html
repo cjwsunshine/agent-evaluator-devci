@@ -1,0 +1,358 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Agent评测平台</title>
+    <link rel="stylesheet" href="/static/css/style.css">
+</head>
+<body>
+    <div class="dashboard">
+        <aside class="sidebar">
+            <div class="logo">
+                <h2>Agent评测平台</h2>
+            </div>
+            <nav class="nav-menu">
+                <a href="#" class="nav-item active" data-page="home">
+                    <span class="icon">🏠</span> 首页概览
+                </a>
+                <a href="#" class="nav-item" data-page="agent-config">
+                    <span class="icon">🤖</span> Agent配置
+                </a>
+                <a href="#" class="nav-item" data-page="test-cases">
+                    <span class="icon">📋</span> 测试用例
+                </a>
+                <a href="#" class="nav-item" data-page="tasks">
+                    <span class="icon">📊</span> 评测任务
+                </a>
+                <a href="#" class="nav-item" data-page="reports">
+                    <span class="icon">📈</span> 评测报告
+                </a>
+                <a href="#" class="nav-item" data-page="settings">
+                    <span class="icon">⚙️</span> 系统设置
+                </a>
+            </nav>
+            <div class="user-info">
+                <span id="current-user">未登录</span>
+                <button class="btn-logout" onclick="logout()">退出</button>
+            </div>
+        </aside>
+
+        <main class="main-content">
+            <div id="home-page" class="page active">
+                <div class="page-header">
+                    <h1>首页概览</h1>
+                </div>
+                <div class="stats-grid">
+                    <div class="stat-card">
+                        <div class="stat-icon">🤖</div>
+                        <div class="stat-info">
+                            <h3 id="agent-count">0</h3>
+                            <p>已配置Agent</p>
+                        </div>
+                    </div>
+                    <div class="stat-card">
+                        <div class="stat-icon">📋</div>
+                        <div class="stat-info">
+                            <h3 id="test-case-count">0</h3>
+                            <p>测试用例</p>
+                        </div>
+                    </div>
+                    <div class="stat-card">
+                        <div class="stat-icon">📊</div>
+                        <div class="stat-info">
+                            <h3 id="task-count">0</h3>
+                            <p>评测任务</p>
+                        </div>
+                    </div>
+                    <div class="stat-card">
+                        <div class="stat-icon">✅</div>
+                        <div class="stat-info">
+                            <h3 id="pass-rate">0%</h3>
+                            <p>通过率</p>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <div id="agent-config-page" class="page">
+                <div class="page-header">
+                    <h1>Agent配置管理</h1>
+                    <button class="btn-primary" onclick="showAgentModal()">添加Agent</button>
+                </div>
+                <div class="content-card">
+                    <table class="data-table" id="agent-table">
+                        <thead>
+                            <tr>
+                                <th>Agent名称</th>
+                                <th>版本</th>
+                                <th>API端点</th>
+                                <th>状态</th>
+                                <th>操作</th>
+                            </tr>
+                        </thead>
+                        <tbody id="agent-tbody">
+                        </tbody>
+                    </table>
+                </div>
+            </div>
+
+            <div id="test-cases-page" class="page">
+                <div class="page-header">
+                    <h1>测试用例管理</h1>
+                    <div class="header-actions">
+                        <button class="btn-secondary" onclick="showUploadModal()">上传用例</button>
+                        <button class="btn-primary" onclick="showTestCaseModal()">添加用例</button>
+                    </div>
+                </div>
+                <div class="content-card">
+                    <div class="filter-bar">
+                        <input type="text" id="test-case-search" placeholder="搜索用例..." onkeyup="filterTestCases()">
+                        <select id="test-case-tag-filter" onchange="filterTestCases()">
+                            <option value="">全部标签</option>
+                        </select>
+                    </div>
+                    <table class="data-table" id="test-case-table">
+                        <thead>
+                            <tr>
+                                <th>用例名称</th>
+                                <th>查询内容</th>
+                                <th>期望输出</th>
+                                <th>标签</th>
+                                <th>操作</th>
+                            </tr>
+                        </thead>
+                        <tbody id="test-case-tbody">
+                        </tbody>
+                    </table>
+                </div>
+            </div>
+
+            <div id="tasks-page" class="page">
+                <div class="page-header">
+                    <h1>评测任务</h1>
+                    <button class="btn-primary" onclick="showTaskModal()">创建任务</button>
+                </div>
+                <div class="content-card">
+                    <div class="filter-bar">
+                        <select id="task-status-filter" onchange="filterTasks()">
+                            <option value="">全部状态</option>
+                            <option value="pending">待执行</option>
+                            <option value="running">执行中</option>
+                            <option value="completed">已完成</option>
+                            <option value="failed">失败</option>
+                        </select>
+                    </div>
+                    <table class="data-table" id="task-table">
+                        <thead>
+                            <tr>
+                                <th>任务名称</th>
+                                <th>Agent</th>
+                                <th>评测工具</th>
+                                <th>用例数量</th>
+                                <th>状态</th>
+                                <th>创建时间</th>
+                                <th>操作</th>
+                            </tr>
+                        </thead>
+                        <tbody id="task-tbody">
+                        </tbody>
+                    </table>
+                </div>
+            </div>
+
+            <div id="reports-page" class="page">
+                <div class="page-header">
+                    <h1>评测报告</h1>
+                    <div class="header-actions">
+                        <button class="btn-secondary" onclick="exportReport('pdf')">导出PDF</button>
+                        <button class="btn-secondary" onclick="exportReport('excel')">导出Excel</button>
+                        <button class="btn-secondary" onclick="exportReport('markdown')">导出Markdown</button>
+                    </div>
+                </div>
+                <div class="content-card">
+                    <div class="report-summary">
+                        <div class="summary-item">
+                            <h4>通过率</h4>
+                            <div class="progress-bar">
+                                <div class="progress-fill" id="report-pass-rate" style="width: 0%"></div>
+                            </div>
+                            <span id="report-pass-rate-text">0%</span>
+                        </div>
+                        <div class="summary-item">
+                            <h4>总分</h4>
+                            <p id="report-total-score">0</p>
+                        </div>
+                        <div class="summary-item">
+                            <h4>用例总数</h4>
+                            <p id="report-total-cases">0</p>
+                        </div>
+                    </div>
+                    <table class="data-table" id="report-table">
+                        <thead>
+                            <tr>
+                                <th>用例名称</th>
+                                <th>输入</th>
+                                <th>输出</th>
+                                <th>期望</th>
+                                <th>评测结果</th>
+                                <th>详情</th>
+                            </tr>
+                        </thead>
+                        <tbody id="report-tbody">
+                        </tbody>
+                    </table>
+                </div>
+            </div>
+
+            <div id="settings-page" class="page">
+                <div class="page-header">
+                    <h1>系统设置</h1>
+                </div>
+                <div class="content-card">
+                    <h3>评测工具配置</h3>
+                    <div class="form-group">
+                        <label>Promptfoo配置路径</label>
+                        <input type="text" id="promptfoo-path" value="./promptfooconfig.js" placeholder="promptfoo配置文件路径">
+                    </div>
+                    <div class="form-group">
+                        <label>Promptfoo结果目录</label>
+                        <input type="text" id="promptfoo-results" value="./results/promptfoo" placeholder="结果输出目录">
+                    </div>
+                    <button class="btn-primary" onclick="saveSettings()">保存设置</button>
+                </div>
+            </div>
+        </main>
+    </div>
+
+    <div id="agent-modal" class="modal">
+        <div class="modal-content">
+            <span class="close" onclick="closeModal('agent-modal')">&times;</span>
+            <h2 id="agent-modal-title">添加Agent</h2>
+            <input type="hidden" id="agent-id">
+            <div class="form-group">
+                <label>Agent名称</label>
+                <input type="text" id="agent-name" placeholder="请输入Agent名称">
+            </div>
+            <div class="form-group">
+                <label>版本号</label>
+                <input type="text" id="agent-version" placeholder="如: v1.0.0">
+            </div>
+            <div class="form-group">
+                <label>API端点</label>
+                <input type="text" id="agent-endpoint" placeholder="http://localhost:8080/api">
+            </div>
+            <div class="form-group">
+                <label>API密钥</label>
+                <input type="password" id="agent-api-key" placeholder="请输入API密钥">
+            </div>
+            <button class="btn-primary" onclick="saveAgent()">保存</button>
+        </div>
+    </div>
+
+    <div id="test-case-modal" class="modal">
+        <div class="modal-content">
+            <span class="close" onclick="closeModal('test-case-modal')">&times;</span>
+            <h2 id="test-case-modal-title">添加测试用例</h2>
+            <input type="hidden" id="test-case-id">
+            <div class="form-group">
+                <label>用例名称</label>
+                <input type="text" id="test-case-name" placeholder="请输入用例名称">
+            </div>
+            <div class="form-group">
+                <label>查询内容</label>
+                <textarea id="test-case-query" placeholder="请输入查询内容" rows="3"></textarea>
+            </div>
+            <div class="form-group">
+                <label>期望输出</label>
+                <textarea id="test-case-expected" placeholder="请输入期望输出" rows="3"></textarea>
+            </div>
+            <div class="form-group">
+                <label>标签分类</label>
+                <input type="text" id="test-case-tags" placeholder="多个标签用逗号分隔">
+            </div>
+            <button class="btn-primary" onclick="saveTestCase()">保存</button>
+        </div>
+    </div>
+
+    <div id="upload-modal" class="modal">
+        <div class="modal-content">
+            <span class="close" onclick="closeModal('upload-modal')">&times;</span>
+            <h2>上传测试用例文件</h2>
+            <div class="form-group">
+                <label>选择文件</label>
+                <input type="file" id="test-case-file" accept=".json,.xlsx,.csv">
+            </div>
+            <div class="form-group">
+                <label>文件格式说明</label>
+                <p class="help-text">支持JSON、Excel、CSV格式。每行需包含：name（用例名称）、query（查询内容）、expected（期望输出）、tags（标签，可选）。</p>
+            </div>
+            <button class="btn-primary" onclick="uploadTestCases()">上传</button>
+        </div>
+    </div>
+
+    <div id="task-modal" class="modal">
+        <div class="modal-content">
+            <span class="close" onclick="closeModal('task-modal')">&times;</span>
+            <h2 id="task-modal-title">创建评测任务</h2>
+            <input type="hidden" id="task-id">
+            <div class="form-group">
+                <label>任务名称</label>
+                <input type="text" id="task-name" placeholder="请输入任务名称">
+            </div>
+            <div class="form-group">
+                <label>选择Agent</label>
+                <select id="task-agent">
+                    <option value="">请选择Agent</option>
+                </select>
+            </div>
+            <div class="form-group">
+                <label>评测工具</label>
+                <div class="checkbox-group">
+                    <label><input type="checkbox" name="eval-tool" value="promptfoo" checked> Promptfoo</label>
+                </div>
+            </div>
+            <div class="form-group">
+                <label>Promptfoo配置</label>
+                <textarea id="task-promptfoo-config" placeholder="可选：自定义promptfoo配置（JSON格式）" rows="5"></textarea>
+            </div>
+            <div class="form-group">
+                <label>选择测试用例</label>
+                <div class="checkbox-group" id="task-test-cases">
+                </div>
+            </div>
+            <button class="btn-primary" onclick="saveTask()">创建任务</button>
+        </div>
+    </div>
+
+    <div id="progress-modal" class="modal">
+        <div class="modal-content modal-lg">
+            <span class="close" onclick="closeModal('progress-modal')">&times;</span>
+            <h2>评测进度</h2>
+            <div class="progress-info">
+                <div class="progress-stat">
+                    <span class="label">状态:</span>
+                    <span class="value" id="progress-status">准备中</span>
+                </div>
+                <div class="progress-stat">
+                    <span class="label">进度:</span>
+                    <span class="value" id="progress-percent">0%</span>
+                </div>
+                <div class="progress-stat">
+                    <span class="label">已完成:</span>
+                    <span class="value" id="progress-completed">0/0</span>
+                </div>
+            </div>
+            <div class="progress-bar-container">
+                <div class="progress-bar">
+                    <div class="progress-fill" id="progress-fill" style="width: 0%"></div>
+                </div>
+            </div>
+            <div class="progress-details" id="progress-details">
+            </div>
+        </div>
+    </div>
+
+    <script src="/static/js/app.js"></script>
+</body>
+</html>

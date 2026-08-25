@@ -1,0 +1,895 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Agent 评测报告 · {{ summary.run_id }}</title>
+<script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.4/dist/chart.umd.min.js"></script>
+<style>
+  :root {
+    --bg: #f7f8fb;
+    --card: #ffffff;
+    --text: #1a1f36;
+    --text-muted: #697386;
+    --border: #e4e7eb;
+    --primary: #4f46e5;
+    --primary-tint: #eef2ff;
+    --accent: #0891b2;
+    --accent-tint: #cffafe;
+    --good: #16a34a;
+    --good-tint: #dcfce7;
+    --warn: #d97706;
+    --warn-tint: #fef3c7;
+    --bad: #dc2626;
+    --bad-tint: #fee2e2;
+    --na: #9ca3af;
+    --na-tint: #f3f4f6;
+    --shadow: 0 1px 3px rgba(16,24,40,.08), 0 1px 2px rgba(16,24,40,.04);
+  }
+  @media (prefers-color-scheme: dark) {
+    :root {
+      --bg: #0f172a;
+      --card: #1e293b;
+      --text: #e2e8f0;
+      --text-muted: #94a3b8;
+      --border: #334155;
+      --primary: #818cf8;
+      --primary-tint: #1e1b4b;
+      --accent: #22d3ee;
+      --accent-tint: #083344;
+      --good: #4ade80;
+      --good-tint: #052e16;
+      --warn: #fbbf24;
+      --warn-tint: #422006;
+      --bad: #f87171;
+      --bad-tint: #450a0a;
+      --na: #64748b;
+      --na-tint: #1e293b;
+      --shadow: 0 1px 3px rgba(0,0,0,.4), 0 1px 2px rgba(0,0,0,.3);
+    }
+  }
+  * { box-sizing: border-box; }
+  body {
+    margin: 0;
+    font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", "PingFang SC",
+      "Hiragino Sans GB", "Microsoft YaHei", Roboto, Helvetica, Arial, sans-serif;
+    background: var(--bg);
+    color: var(--text);
+    line-height: 1.55;
+  }
+  .container { max-width: 1200px; margin: 0 auto; padding: 32px 24px 64px; }
+  header.report-header {
+    display: flex;
+    flex-wrap: wrap;
+    align-items: center;
+    justify-content: space-between;
+    gap: 16px;
+    margin-bottom: 28px;
+    padding-bottom: 20px;
+    border-bottom: 1px solid var(--border);
+  }
+  header.report-header h1 {
+    font-size: 24px;
+    margin: 0;
+    font-weight: 700;
+  }
+  header.report-header .meta {
+    font-size: 13px;
+    color: var(--text-muted);
+    display: flex;
+    flex-wrap: wrap;
+    gap: 12px;
+  }
+  header.report-header .meta span { white-space: nowrap; }
+  .kpi-row {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+    gap: 16px;
+    margin-bottom: 28px;
+  }
+  .kpi {
+    background: var(--card);
+    border: 1px solid var(--border);
+    border-radius: 12px;
+    padding: 20px;
+    box-shadow: var(--shadow);
+  }
+  .kpi .label {
+    font-size: 12px;
+    text-transform: uppercase;
+    letter-spacing: .05em;
+    color: var(--text-muted);
+    margin-bottom: 8px;
+  }
+  .kpi .value {
+    font-size: 32px;
+    font-weight: 700;
+    line-height: 1.1;
+  }
+  .kpi .sub {
+    font-size: 12px;
+    color: var(--text-muted);
+    margin-top: 6px;
+  }
+  .kpi.primary { border-top: 3px solid var(--primary); }
+  .kpi.good { border-top: 3px solid var(--good); }
+  .kpi.warn { border-top: 3px solid var(--warn); }
+  .kpi.bad  { border-top: 3px solid var(--bad); }
+
+  .section { margin-bottom: 32px; }
+  .section h2 {
+    font-size: 17px;
+    margin: 0 0 14px;
+    font-weight: 600;
+  }
+  .tools-grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(240px, 1fr));
+    gap: 16px;
+    margin-bottom: 24px;
+  }
+  .tool-card {
+    background: var(--card);
+    border: 1px solid var(--border);
+    border-radius: 12px;
+    padding: 18px;
+    box-shadow: var(--shadow);
+  }
+  .tool-card .tool-head {
+    display: flex;
+    justify-content: space-between;
+    align-items: baseline;
+    margin-bottom: 12px;
+  }
+  .tool-card .tool-name { font-weight: 600; font-size: 15px; }
+  .tool-card .tool-score { font-size: 24px; font-weight: 700; }
+  .tool-card .bar {
+    height: 6px;
+    background: var(--na-tint);
+    border-radius: 3px;
+    overflow: hidden;
+    margin: 8px 0;
+  }
+  .tool-card .bar > div { height: 100%; border-radius: 3px; }
+  .tool-card .stats {
+    font-size: 12px;
+    color: var(--text-muted);
+    display: flex;
+    justify-content: space-between;
+  }
+
+  .charts-row {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 16px;
+  }
+  @media (max-width: 800px) { .charts-row { grid-template-columns: 1fr; } }
+  .chart-card {
+    background: var(--card);
+    border: 1px solid var(--border);
+    border-radius: 12px;
+    padding: 18px;
+    box-shadow: var(--shadow);
+  }
+  .chart-card h3 {
+    margin: 0 0 12px;
+    font-size: 14px;
+    font-weight: 600;
+    color: var(--text-muted);
+    text-transform: uppercase;
+    letter-spacing: .05em;
+  }
+  .chart-wrap { position: relative; height: 260px; }
+  .metric-chart-wrap { height: auto; min-height: 220px; }
+  .chart-card-primary {
+    border: 1px solid var(--primary);
+    box-shadow: 0 0 0 3px var(--primary-tint), var(--shadow);
+  }
+  .chart-head {
+    display: flex; flex-wrap: wrap; align-items: center;
+    justify-content: space-between; gap: 10px; margin-bottom: 12px;
+  }
+  .chart-head h3 { margin: 0; }
+  .chart-legend-inline { display: flex; flex-wrap: wrap; gap: 12px; font-size: 12px; color: var(--text-muted); }
+  .chart-legend-inline span { display: inline-flex; align-items: center; gap: 5px; }
+  .chart-legend-inline i { width: 11px; height: 11px; border-radius: 3px; display: inline-block; }
+  .chart-legend-inline .thresh-legend i { height: 2px; border-radius: 0; }
+  .chart-note { font-size: 12px; color: var(--text-muted); margin-top: 10px; line-height: 1.5; }
+  .metric-legend { width: 100%; border-collapse: collapse; margin-top: 14px; font-size: 13px; }
+  .metric-legend th, .metric-legend td {
+    padding: 7px 10px; text-align: left; border-bottom: 1px solid var(--border);
+  }
+  .metric-legend th {
+    font-size: 11px; text-transform: uppercase; letter-spacing: .04em;
+    color: var(--text-muted); background: var(--primary-tint);
+  }
+  .metric-legend td.num { text-align: right; font-variant-numeric: tabular-nums; }
+  .metric-legend .tag {
+    display: inline-block; font-size: 10px; padding: 1px 7px; border-radius: 999px;
+    background: var(--na-tint); color: var(--na); margin-left: 6px;
+  }
+
+  table.detail {
+    width: 100%;
+    border-collapse: collapse;
+    background: var(--card);
+    border: 1px solid var(--border);
+    border-radius: 12px;
+    overflow: hidden;
+    box-shadow: var(--shadow);
+    font-size: 14px;
+  }
+  table.detail th, table.detail td {
+    padding: 12px 14px;
+    text-align: left;
+    border-bottom: 1px solid var(--border);
+    vertical-align: middle;
+  }
+  table.detail th {
+    background: var(--primary-tint);
+    font-weight: 600;
+    font-size: 12px;
+    text-transform: uppercase;
+    letter-spacing: .04em;
+    color: var(--text-muted);
+  }
+  table.detail tr:last-child td { border-bottom: none; }
+  table.detail tr.expandable { cursor: pointer; }
+  table.detail tr.expandable:hover { background: var(--primary-tint); }
+  .pill {
+    display: inline-block;
+    min-width: 56px;
+    text-align: center;
+    padding: 3px 10px;
+    border-radius: 999px;
+    font-size: 12px;
+    font-weight: 600;
+  }
+  .pill.good { background: var(--good-tint); color: var(--good); }
+  .pill.warn { background: var(--warn-tint); color: var(--warn); }
+  .pill.bad  { background: var(--bad-tint); color: var(--bad); }
+  .pill.na   { background: var(--na-tint); color: var(--na); }
+  .score-cell { font-variant-numeric: tabular-nums; font-weight: 600; }
+  .metric-name {
+    font-size: 11px;
+    color: var(--text-muted);
+    font-family: ui-monospace, SFMono-Regular, Menlo, monospace;
+    margin-top: 6px;
+    word-break: break-word;
+  }
+  .score-unit { font-size: 11px; font-weight: 500; color: var(--text-muted); }
+  .skip-hint { font-size: 11px; color: var(--text-muted); margin-top: 4px; line-height: 1.3; }
+  .metric-grid {
+    width: 100%;
+    border-collapse: collapse;
+    font-size: 12.5px;
+    margin: 8px 0;
+  }
+  .metric-grid td {
+    padding: 3px 8px 3px 0;
+    vertical-align: top;
+  }
+  .metric-grid td:first-child {
+    color: var(--text-muted);
+    white-space: nowrap;
+    width: 1%;
+  }
+  .metric-grid td code {
+    font-size: 11.5px;
+    background: var(--bg);
+    padding: 1px 5px;
+    border-radius: 4px;
+  }
+  .judge-reason {
+    font-size: 12.5px;
+    line-height: 1.55;
+    color: var(--text);
+    background: var(--bg);
+    border-left: 3px solid var(--primary);
+    padding: 8px 12px;
+    border-radius: 0 6px 6px 0;
+    margin: 8px 0;
+  }
+  .reason-label {
+    display: block;
+    font-size: 10.5px;
+    font-weight: 700;
+    text-transform: uppercase;
+    letter-spacing: .04em;
+    color: var(--primary);
+    margin-bottom: 3px;
+  }
+  .detail-row td { background: var(--bg); padding: 0; }
+  .detail-row .detail-body {
+    padding: 16px 20px;
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 16px;
+  }
+  @media (max-width: 800px) { .detail-row .detail-body { grid-template-columns: 1fr; } }
+  .detail-row h4 {
+    margin: 0 0 6px;
+    font-size: 12px;
+    text-transform: uppercase;
+    letter-spacing: .05em;
+    color: var(--text-muted);
+  }
+  .detail-row pre {
+    margin: 0;
+    padding: 10px 12px;
+    background: var(--card);
+    border: 1px solid var(--border);
+    border-radius: 6px;
+    font-size: 12px;
+    white-space: pre-wrap;
+    word-break: break-word;
+    max-height: 240px;
+    overflow-y: auto;
+  }
+  .chevron { display: inline-block; transition: transform .15s; color: var(--text-muted); margin-right: 6px; }
+  tr.expandable.open .chevron { transform: rotate(90deg); }
+  footer {
+    margin-top: 40px;
+    text-align: center;
+    font-size: 12px;
+    color: var(--text-muted);
+  }
+  .not-run-banner {
+    background: var(--warn-tint);
+    color: var(--warn);
+    padding: 10px 14px;
+    border-radius: 8px;
+    margin-bottom: 16px;
+    font-size: 13px;
+  }
+</style>
+</head>
+<body>
+<div class="container">
+
+  <header class="report-header">
+    <div>
+      <h1>Agent 评测报告</h1>
+      <div class="meta">
+        <span>📦 {{ summary.agent_script }}</span>
+        <span>🆔 {{ summary.run_id }}</span>
+        <span>🕒 {{ summary.timestamp.replace('T', ' ') }}</span>
+      </div>
+    </div>
+    <div class="meta">
+      <span>{{ summary.overall.tools_run }}/3 个评测工具</span>
+    </div>
+  </header>
+
+  {% set ov = summary.overall %}
+  {% set ns = namespace(missing=[]) %}
+  {% for name, t in summary.tools.items() %}{% if t.status == 'not_run' %}{{ ns.missing.append(name) or '' }}{% endif %}{% endfor %}
+  {% if ns.missing %}
+  <div class="not-run-banner">
+    ⚠ 以下工具未产出结果：{{ ns.missing | join('、') }}——报告基于已完成的工具生成。
+  </div>
+  {% endif %}
+
+  <!-- KPI cards -->
+  <div class="kpi-row">
+    <div class="kpi {% if ov.avg_score is not none and ov.avg_score >= 80 %}good{% elif ov.avg_score is not none and ov.avg_score >= 60 %}warn{% elif ov.avg_score is not none %}bad{% else %}primary{% endif %}">
+      <div class="label">综合平均分</div>
+      <div class="value">{{ ov.avg_score if ov.avg_score is not none else '—' }}</div>
+      <div class="sub">三工具算术平均（0-100）</div>
+    </div>
+    <div class="kpi {% if ov.pass_rate is not none and ov.pass_rate >= 0.8 %}good{% elif ov.pass_rate is not none and ov.pass_rate >= 0.6 %}warn{% elif ov.pass_rate is not none %}bad{% else %}primary{% endif %}">
+      <div class="label">通过率</div>
+      <div class="value">{{ (ov.pass_rate * 100) | round(1) if ov.pass_rate is not none else '—' }}%</div>
+      <div class="sub">{{ ov.total_passed }} 通过 / {{ ov.total_failed }} 失败（共 {{ ov.total_passed + ov.total_failed }} 项）</div>
+    </div>
+    <div class="kpi primary">
+      <div class="label">测试用例数</div>
+      <div class="value">{{ ov.total_cases }}</div>
+      <div class="sub">每个用例运行 {{ ov.tools_run }} 个工具</div>
+    </div>
+    <div class="kpi primary">
+      <div class="label">总耗时</div>
+      <div class="value">
+        {% set total_dur = namespace(s=0) %}
+        {% for name, t in summary.tools.items() %}{% if t.duration_s %}{% set total_dur.s = total_dur.s + t.duration_s %}{% endif %}{% endfor %}
+        {{ total_dur.s | round(1) }}s
+      </div>
+      <div class="sub">DeepEval + Promptfoo + TruLens + RAGAS</div>
+    </div>
+  </div>
+
+  <!-- Per-tool cards -->
+  <div class="section">
+    <h2>各工具表现</h2>
+    <div class="tools-grid">
+      {% for tool_name in ['deepeval', 'promptfoo', 'trulens', 'ragas'] %}
+      {% set t = summary.tools[tool_name] %}
+      <div class="tool-card">
+        <div class="tool-head">
+          <span class="tool-name">
+            {% if tool_name == 'deepeval' %}DeepEval
+            {% elif tool_name == 'promptfoo' %}Promptfoo
+            {% elif tool_name == 'trulens' %}TruLens
+            {% else %}RAGAS{% endif %}
+            {% if t.status == 'not_run' %}<span class="pill na" style="font-size:10px;margin-left:6px;">未运行</span>
+            {% elif t.status == 'skipped' %}<span class="pill na" style="font-size:10px;margin-left:6px;">已跳过</span>{% endif %}
+          </span>
+          <span class="tool-score {% if t.avg_score is not none and t.avg_score >= 80 %}good{% elif t.avg_score is not none and t.avg_score >= 60 %}warn{% elif t.avg_score is not none %}bad{% else %}na{% endif %}"
+                style="color: var({% if t.status in ['not_run','skipped'] %}--na{% elif t.avg_score is not none and t.avg_score >= 80 %}--good{% elif t.avg_score is not none and t.avg_score >= 60 %}--warn{% elif t.avg_score is not none %}--bad{% else %}--text-muted{% endif %})">
+            {{ t.avg_score if t.avg_score is not none else '—' }}
+          </span>
+        </div>
+        <div class="bar">
+          {% set pct = (t.pass_rate * 100) if t.pass_rate is not none else 0 %}
+          <div style="width: {{ pct }}%; background:
+            {% if pct >= 80 %}var(--good)
+            {% elif pct >= 60 %}var(--warn)
+            {% else %}var(--bad){% endif %};"></div>
+        </div>
+        <div class="stats">
+          <span>通过率 {{ (t.pass_rate * 100) | round(1) if t.pass_rate is not none else '—' }}%</span>
+          <span>{{ t.passed }}✓ / {{ t.failed }}✗{% if t.skipped %} / {{ t.skipped }}⊘{% endif %}</span>
+          <span>{{ t.duration_s | round(1) if t.duration_s else '—' }}s</span>
+        </div>
+      </div>
+      {% endfor %}
+    </div>
+  </div>
+
+  <!-- Charts -->
+  <div class="section">
+    <h2>用例与指标达标情况</h2>
+
+    {# ===== 主图：每个用例的各指标得分 + 达标线 ===== #}
+    {% if per_case_rows %}
+    <div class="chart-card chart-card-primary">
+      <div class="chart-head">
+        <h3>每个用例的指标分</h3>
+        <div class="chart-legend-inline">
+          <span><i style="background:var(--primary)"></i>DeepEval</span>
+          <span><i style="background:var(--good)"></i>Promptfoo</span>
+          <span><i style="background:var(--warn)"></i>TruLens</span>
+          <span><i style="background:var(--accent)"></i>RAGAS</span>
+          <span class="thresh-legend"><i style="background:var(--bad)"></i>达标线 80</span>
+        </div>
+      </div>
+      <div class="chart-wrap" style="height: {{ [280, 200 + per_case_rows|length * 10]|min }}px;"><canvas id="perCaseChart"></canvas></div>
+      <div class="chart-note">
+        每组为一个用例，柱子分别是该用例在 DeepEval / Promptfoo / TruLens / RAGAS 上的指标健康度（0-100）。
+        <b>柱子达到红色虚线（80 分）即为达标</b>；低于 60 为不达标，60-80 为临界。
+        跳过 / 未运行的工具不显示柱子；「越低越好」的指标（幻觉率等）已反向换算（0 分→100）。悬停可看原始指标名与分数。
+      </div>
+    </div>
+    {% endif %}
+
+    {# ===== 次图：按指标聚合的平均健康度 ===== #}
+    {% if metric_rows %}
+    <div class="chart-card" style="margin-top:16px;">
+      <h3>各指标平均健康度（汇总）</h3>
+      <div class="chart-wrap metric-chart-wrap" style="height: {{ [120 + metric_rows|length * 34, 460]|min }}px;"><canvas id="metricChart"></canvas></div>
+      <div class="chart-note">
+        每个指标在所有用例上的平均健康度；对「越低越好」的指标（幻觉率、事实一致性）已做反向换算：0 分（无幻觉）显示为 100。
+      </div>
+      <table class="metric-legend">
+        <thead>
+          <tr><th>工具</th><th>指标</th><th class="num">平均健康度</th><th class="num">通过/失败</th><th class="num">通过率</th></tr>
+        </thead>
+        <tbody>
+          {% for m in metric_rows %}
+          <tr>
+            <td>{{ m.tool_label }}</td>
+            <td>
+              {{ m.label }}
+              <code style="font-size:11px;background:var(--bg);padding:1px 5px;border-radius:4px;color:var(--text-muted);">{{ m.metric }}</code>
+              {% if m.lower_is_better %}<span class="tag">越低越好</span>{% endif %}
+            </td>
+            <td class="num" style="font-weight:600;color:
+              {% if m.avg_health is none %}var(--na)
+              {% elif m.avg_health >= 80 %}var(--good)
+              {% elif m.avg_health >= 60 %}var(--warn)
+              {% else %}var(--bad){% endif %}">
+              {{ m.avg_health if m.avg_health is not none else '—' }}
+            </td>
+            <td class="num">{{ m.passed }}✓ / {{ m.failed }}✗</td>
+            <td class="num">{{ (m.pass_rate * 100) | round(1) if m.pass_rate is not none else '—' }}%</td>
+          </tr>
+          {% endfor %}
+        </tbody>
+      </table>
+    </div>
+    {% endif %}
+
+    {# ===== 概览：工具对比 + 历史趋势 ===== #}
+    <h2 style="margin-top:28px;">工具对比与趋势</h2>
+    <div class="charts-row">
+      <div class="chart-card">
+        <h3>各工具平均分对比</h3>
+        <div class="chart-wrap"><canvas id="barChart"></canvas></div>
+      </div>
+      <div class="chart-card">
+        <h3>历史趋势（最近 {{ history | length }} 次）</h3>
+        <div class="chart-wrap">
+          {% if history %}
+          <canvas id="trendChart"></canvas>
+          {% else %}
+          <div style="display:flex;align-items:center;justify-content:center;height:100%;color:var(--text-muted);font-size:13px;">
+            暂无历史数据（运行多次后会显示趋势）
+          </div>
+          {% endif %}
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- Detail table -->
+  <div class="section">
+    <h2>用例详情（点击行展开）</h2>
+    <table class="detail">
+      <thead>
+        <tr>
+          <th style="width: 28%;">用例</th>
+          <th>DeepEval</th>
+          <th>Promptfoo</th>
+          <th>TruLens</th>
+          <th>RAGAS</th>
+        </tr>
+      </thead>
+      <tbody>
+        {% for case in summary.cases %}
+        <tr class="expandable" data-target="detail-{{ loop.index0 }}">
+          <td>
+            <span class="chevron">▶</span>
+            <strong>{{ case.name }}</strong>
+            <div style="font-size:12px;color:var(--text-muted);margin-top:2px;">{{ case.query }}</div>
+          </td>
+          {% for tool in ['deepeval', 'promptfoo', 'trulens', 'ragas'] %}
+          {% set r = case[tool] %}
+          {% set lower_better = r.metric in ['hallucination', 'factual_consistency'] %}
+          <td>
+            <span class="pill {{ r.status | status_class }}">
+              {% if r.status == 'passed' %}通过
+              {% elif r.status == 'failed' %}失败
+              {% elif r.status == 'skipped' %}跳过
+              {% else %}未运行{% endif %}
+            </span>
+            <div class="metric-name">{{ r.metric or '—' }}</div>
+            <div class="score-cell" style="margin-top:2px;color:
+              {% if r.score is none %}var(--na)
+              {% elif lower_better %}var(--good)
+              {% elif r.score >= 80 %}var(--good)
+              {% elif r.score >= 60 %}var(--warn)
+              {% else %}var(--bad){% endif %}">
+              {{ r.score if r.score is not none else '—' }}<span class="score-unit">/100</span>
+            </div>
+            {% if r.status == 'skipped' and r.error %}
+            <div class="skip-hint">{{ r.error }}</div>
+            {% endif %}
+          </td>
+          {% endfor %}
+        </tr>
+        <tr class="detail-row" id="detail-{{ loop.index0 }}" style="display:none;">
+          <td colspan="5">
+            <div class="detail-body">
+              {% for tool in ['deepeval', 'promptfoo', 'trulens', 'ragas'] %}
+              {% set r = case[tool] %}
+              {% set bd = r.breakdown or {} %}
+              <div>
+                <h4>
+                  {% if tool == 'deepeval' %}DeepEval
+                  {% elif tool == 'promptfoo' %}Promptfoo
+                  {% elif tool == 'trulens' %}TruLens
+                  {% else %}RAGAS{% endif %}
+                  · {{ r.metric or '-' }}
+                  {% if r.latency_ms %} · {{ r.latency_ms | round(1) }}ms{% endif %}
+                </h4>
+                {% if r.error %}
+                <pre style="border-color:var(--bad);color:var(--bad);">{{ r.error }}</pre>
+                {% endif %}
+                <table class="metric-grid">
+                  <tr><td>归一化分数</td><td><b>{{ r.score if r.score is not none else '—' }}</b> / 100</td></tr>
+                  {% if bd.raw_score is not none %}<tr><td>原始分</td><td>{{ bd.raw_score }}</td></tr>{% endif %}
+                  {% if bd.threshold is not none %}<tr><td>通过阈值</td><td>{{ bd.threshold }}</td></tr>{% endif %}
+                  {% if bd.metric_class %}<tr><td>指标实现</td><td><code>{{ bd.metric_class }}</code></td></tr>{% endif %}
+                  {% if bd.metric_impl %}<tr><td>指标实现</td><td><code>{{ bd.metric_impl }}</code></td></tr>{% endif %}
+                  {% if bd.tokens %}<tr><td>Token 用量</td><td>{{ bd.tokens }}</td></tr>{% endif %}
+                  {% if bd.judge_model %}<tr><td>判分模型</td><td>{{ bd.judge_model }}</td></tr>{% endif %}
+                </table>
+                {% if bd.reason %}
+                <div class="judge-reason">
+                  <span class="reason-label">LLM 判分理由</span>
+                  {{ bd.reason }}
+                </div>
+                {% endif %}
+                {% if bd.failure_reason %}
+                <div class="judge-reason" style="border-left-color:var(--bad);">
+                  <span class="reason-label">失败原因</span>
+                  {{ bd.failure_reason }}
+                </div>
+                {% endif %}
+                {% if r.agent_output %}
+                <h4 style="margin-top:10px;">Agent 输出</h4>
+                <pre>{{ r.agent_output }}</pre>
+                {% endif %}
+                {% if not r.error and not r.agent_output and not bd.reason %}
+                <pre style="color:var(--text-muted);">无详情</pre>
+                {% endif %}
+              </div>
+              {% endfor %}
+            </div>
+          </td>
+        </tr>
+        {% endfor %}
+      </tbody>
+    </table>
+  </div>
+
+  <footer>
+    Generated by <code>scripts/generate_report.py</code> ·
+    PikoCI agent-evaluation pipeline ·
+    summary.json 位于 {{ summary.run_id }}/
+  </footer>
+</div>
+
+<script>
+  const CHART_DATA = {{ chart_payload | safe }};
+
+  const cssVar = (name) => getComputedStyle(document.documentElement).getPropertyValue(name).trim();
+  const textColor = cssVar('--text-muted');
+  const gridColor = cssVar('--border');
+
+  // Bar chart — tool averages
+  const barCtx = document.getElementById('barChart');
+  if (barCtx) {
+    new Chart(barCtx, {
+      type: 'bar',
+      data: {
+        labels: CHART_DATA.tool_labels,
+        datasets: [
+          {
+            label: '平均分',
+            data: CHART_DATA.tool_avg,
+            backgroundColor: cssVar('--primary'),
+            borderRadius: 6,
+            yAxisID: 'y',
+          },
+          {
+            label: '通过率 (%)',
+            data: CHART_DATA.tool_pass_rate,
+            backgroundColor: cssVar('--good'),
+            borderRadius: 6,
+            yAxisID: 'y1',
+          },
+        ],
+      },
+      options: {
+        responsive: true,
+        maintainAspectRatio: false,
+        plugins: {
+          legend: { labels: { color: textColor, font: { size: 11 } } },
+        },
+        scales: {
+          x: { ticks: { color: textColor }, grid: { color: gridColor } },
+          y: {
+            beginAtZero: true,
+            max: 100,
+            position: 'left',
+            ticks: { color: textColor },
+            grid: { color: gridColor },
+            title: { display: true, text: '平均分', color: textColor },
+          },
+          y1: {
+            beginAtZero: true,
+            max: 100,
+            position: 'right',
+            ticks: { color: textColor },
+            grid: { drawOnChartArea: false },
+            title: { display: true, text: '通过率 %', color: textColor },
+          },
+        },
+      },
+    });
+  }
+
+  // Per-metric horizontal bar chart
+  const metricCtx = document.getElementById('metricChart');
+  if (metricCtx && CHART_DATA.metric_labels && CHART_DATA.metric_labels.length) {
+    const toolColor = {
+      deepeval: cssVar('--primary'),
+      promptfoo: cssVar('--good'),
+      trulens: cssVar('--warn'),
+      ragas: cssVar('--accent'),
+    };
+    // Reverse so the first tool/metric appears at the top of a horizontal bar
+    const labels = [...CHART_DATA.metric_labels].reverse();
+    const scores = [...CHART_DATA.metric_scores].reverse();
+    const tools = [...CHART_DATA.metric_tools].reverse();
+    new Chart(metricCtx, {
+      type: 'bar',
+      data: {
+        labels,
+        datasets: [{
+          label: '平均健康度',
+          data: scores,
+          backgroundColor: tools.map(t => toolColor[t] || cssVar('--primary')),
+          borderRadius: 5,
+          maxBarThickness: 26,
+        }],
+      },
+      options: {
+        indexAxis: 'y',
+        responsive: true,
+        maintainAspectRatio: false,
+        plugins: {
+          legend: { display: false },
+          tooltip: {
+            callbacks: {
+              label: (ctx) => {
+                const v = ctx.parsed.x;
+                return v == null ? '无数据' : `平均健康度: ${v}/100`;
+              },
+            },
+          },
+        },
+        scales: {
+          x: {
+            beginAtZero: true, max: 100,
+            ticks: { color: textColor },
+            grid: { color: gridColor },
+          },
+          y: {
+            ticks: { color: textColor, font: { size: 11 } },
+            grid: { display: false },
+          },
+        },
+      },
+    });
+  }
+
+  // Per-case grouped bar chart (PRIMARY)
+  (() => {
+    const ctx = document.getElementById('perCaseChart');
+    if (!ctx) return;
+    const labels = CHART_DATA.per_case_labels || [];
+    if (!labels.length) return;
+
+    const PASS = 80, WARN = 60;
+    const baseColor = (tool) =>
+      tool === 'deepeval' ? cssVar('--primary')
+      : tool === 'promptfoo' ? cssVar('--good')
+      : tool === 'trulens' ? cssVar('--warn')
+      : cssVar('--accent');
+    // Color a bar by pass/fail so达标 is immediately visible: keep the tool's
+    // color when passing, desaturate to warn/bad when not.
+    const cellColor = (tool, v) => {
+      if (v == null) return 'transparent';
+      if (v >= PASS) return baseColor(tool);
+      if (v >= WARN) return cssVar('--warn');
+      return cssVar('--bad');
+    };
+
+    const metricNames = CHART_DATA.per_case_metric_names || {};
+    const datasets = (CHART_DATA.per_case_datasets || []).map((ds) => ({
+      label: ds.label,
+      tool: ds.tool,
+      data: ds.data,
+      metricByCase: metricNames[ds.tool] || [],
+      backgroundColor: ds.data.map((v) => cellColor(ds.tool, v)),
+      borderRadius: 4,
+      maxBarThickness: 30,
+      borderSkipped: false,
+    }));
+
+    new Chart(ctx, {
+      type: 'bar',
+      data: { labels, datasets },
+      options: {
+        responsive: true,
+        maintainAspectRatio: false,
+        plugins: {
+          legend: {
+            labels: {
+              color: textColor, font: { size: 11 },
+              generateLabels: () => [
+                { text: '达标 (≥80)',  fillStyle: cssVar('--good'),  strokeStyle: cssVar('--good'),  pointStyle: 'rect' },
+                { text: '临界 (60-79)', fillStyle: cssVar('--warn'),  strokeStyle: cssVar('--warn'), pointStyle: 'rect' },
+                { text: '不达标 (<60)', fillStyle: cssVar('--bad'),   strokeStyle: cssVar('--bad'),  pointStyle: 'rect' },
+                { text: '达标线 80',     fillStyle: cssVar('--bad'),   strokeStyle: cssVar('--bad'),  pointStyle: 'line' },
+              ],
+            },
+          },
+          tooltip: {
+            callbacks: {
+              title: (items) => items[0]?.label || '',
+              label: (item) => {
+                const v = item.parsed.y;
+                if (v == null) return `${item.dataset.label}: 跳过/未运行`;
+                const metric = (item.dataset.metricByCase || [])[item.dataIndex];
+                const verdict = v >= PASS ? '✓ 达标' : v >= WARN ? '⚠ 临界' : '✗ 不达标';
+                return `${item.dataset.label}: ${v}/100 ${verdict}${metric ? ' · ' + metric : ''}`;
+              },
+            },
+          },
+          // Red dashed pass-threshold line at y=80
+          annotation: false,
+        },
+        scales: {
+          x: {
+            ticks: { color: textColor, font: { size: 11 }, maxRotation: 25, minRotation: 0 },
+            grid: { display: false },
+          },
+          y: {
+            beginAtZero: true, max: 100,
+            ticks: { color: textColor, stepSize: 20 },
+            grid: { color: (c) => c.tick.value === PASS ? cssVar('--bad') : gridColor,
+                     lineWidth: (c) => c.tick.value === PASS ? 2 : 1,
+                     borderDash: (c) => c.tick.value === PASS ? [6, 4] : [] },
+            title: { display: true, text: '健康度（红线 80 = 达标）', color: textColor },
+          },
+        },
+      },
+    });
+  })();
+
+  // Trend chart
+  const trendCtx = document.getElementById('trendChart');
+  if (trendCtx && CHART_DATA.history_labels.length) {
+    new Chart(trendCtx, {
+      type: 'line',
+      data: {
+        labels: CHART_DATA.history_labels,
+        datasets: [
+          {
+            label: '平均分',
+            data: CHART_DATA.history_avg,
+            borderColor: cssVar('--primary'),
+            backgroundColor: cssVar('--primary') + '33',
+            tension: .3,
+            fill: true,
+            yAxisID: 'y',
+          },
+          {
+            label: '通过率 (%)',
+            data: CHART_DATA.history_pass,
+            borderColor: cssVar('--good'),
+            backgroundColor: cssVar('--good') + '22',
+            tension: .3,
+            fill: false,
+            yAxisID: 'y1',
+          },
+        ],
+      },
+      options: {
+        responsive: true,
+        maintainAspectRatio: false,
+        plugins: {
+          legend: { labels: { color: textColor, font: { size: 11 } } },
+          tooltip: { mode: 'index', intersect: false },
+        },
+        scales: {
+          x: { ticks: { color: textColor, maxRotation: 45, minRotation: 0, font: { size: 10 } }, grid: { color: gridColor } },
+          y: {
+            beginAtZero: true, max: 100, position: 'left',
+            ticks: { color: textColor }, grid: { color: gridColor },
+          },
+          y1: {
+            beginAtZero: true, max: 100, position: 'right',
+            ticks: { color: textColor }, grid: { drawOnChartArea: false },
+          },
+        },
+      },
+    });
+  }
+
+  // Expandable rows
+  document.querySelectorAll('tr.expandable').forEach((row) => {
+    row.addEventListener('click', () => {
+      const targetId = row.getAttribute('data-target');
+      const target = document.getElementById(targetId);
+      if (!target) return;
+      const isOpen = row.classList.toggle('open');
+      target.style.display = isOpen ? 'table-row' : 'none';
+    });
+  });
+</script>
+</body>
+</html>

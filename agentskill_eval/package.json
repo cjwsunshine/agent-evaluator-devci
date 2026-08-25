@@ -1,0 +1,21 @@
+{
+  "name": "agentskill-eval",
+  "version": "1.0.0",
+  "description": "Agent Skill Evaluation System",
+  "main": "run.py",
+  "scripts": {
+    "test": "bash run_promptfoo_test.sh",
+    "promptfoo:eval": "npx promptfoo eval --config promptfooconfig.js",
+    "promptfoo:view": "npx promptfoo view"
+  },
+  "devDependencies": {
+    "promptfoo": "^0.121.5"
+  },
+  "keywords": [
+    "agent",
+    "evaluation",
+    "promptfoo"
+  ],
+  "author": "",
+  "license": "ISC"
+}

@@ -1,0 +1,22 @@
+{
+  "name": "agent-evaluator",
+  "version": "1.0.0",
+  "description": "Agent Evaluation Platform",
+  "main": "run.py",
+  "scripts": {
+    "test": "bash run_promptfoo_test.sh",
+    "promptfoo:eval": "npx promptfoo eval --config promptfooconfig.js",
+    "promptfoo:view": "npx promptfoo view"
+  },
+  "devDependencies": {
+    "promptfoo": "^0.121.5"
+  },
+  "keywords": [
+    "agent",
+    "evaluation",
+    "promptfoo",
+    "deepeval"
+  ],
+  "author": "",
+  "license": "ISC"
+}

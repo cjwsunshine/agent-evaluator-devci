@@ -1,0 +1,1156 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Agent评测平台</title>
+    <link rel="stylesheet" href="/static/css/style.css?v={{ static_version() }}">
+</head>
+<body>
+    <div class="dashboard">
+        <aside class="sidebar">
+            <div class="logo">
+                <h2>Agent评测平台</h2>
+                <span class="logo-sub">Agent Evaluation Platform</span>
+            </div>
+            <nav class="nav-menu">
+                <a href="#" class="nav-item active" data-page="home">
+                    首页概览
+                </a>
+                <a href="#" class="nav-item" data-page="agent-config">
+                    Agent配置
+                </a>
+                <a href="#" class="nav-item" data-page="test-cases">
+                    评测集管理
+                </a>
+                <a href="#" class="nav-item" data-page="tasks">
+                    评测任务
+                </a>
+                <a href="#" class="nav-item" data-page="reports">
+                    评测报告
+                </a>
+                <a href="#" class="nav-item" data-page="pipeline">
+                    持续评测
+                    <span class="nav-badge">CI</span>
+                </a>
+                <a href="#" class="nav-item" data-page="settings">
+                    系统设置
+                </a>
+            </nav>
+            <div class="user-info">
+                <span id="current-user">未登录</span>
+                <button class="btn-logout" onclick="logout()">退出</button>
+            </div>
+        </aside>
+
+        <main class="main-content">
+            <div id="home-page" class="page active">
+                <div class="page-header">
+                    <h1>首页概览 <span class="page-title-en">Overview</span></h1>
+                    <p>点击下方卡片可快速进入对应功能模块</p>
+                </div>
+                <div class="stats-grid">
+                    <div class="stat-card stat-card-link" role="button" tabindex="0" data-page="agent-config" title="进入 Agent 配置">
+                        <div class="stat-info">
+                            <h3 id="agent-count">0</h3>
+                            <p>已配置Agent</p>
+                        </div>
+                        <span class="stat-go">进入 →</span>
+                    </div>
+                    <div class="stat-card stat-card-link" role="button" tabindex="0" data-page="test-cases" title="进入评测集管理">
+                        <div class="stat-info">
+                            <h3 id="test-case-count">0</h3>
+                            <p>测试用例</p>
+                        </div>
+                        <span class="stat-go">进入 →</span>
+                    </div>
+                    <div class="stat-card stat-card-link" role="button" tabindex="0" data-page="tasks" title="进入评测任务">
+                        <div class="stat-info">
+                            <h3 id="task-count">0</h3>
+                            <p>评测任务</p>
+                        </div>
+                        <span class="stat-go">进入 →</span>
+                    </div>
+                    <div class="stat-card stat-card-link" role="button" tabindex="0" data-page="reports" title="进入评测报告">
+                        <div class="stat-info">
+                            <h3 id="pass-rate">0%</h3>
+                            <p>通过率</p>
+                        </div>
+                        <span class="stat-go">查看报告 →</span>
+                    </div>
+                </div>
+            </div>
+
+            <div id="agent-config-page" class="page">
+                <div class="page-header">
+                    <h1>Agent配置管理 <span class="page-title-en">Agent Configuration</span></h1>
+                    <button class="btn-primary" onclick="showAgentModal()">添加Agent</button>
+                </div>
+                <div class="content-card">
+                    <table class="data-table" id="agent-table">
+                        <thead>
+                            <tr>
+                                <th>Agent名称</th>
+                                <th>版本</th>
+                                <th>API端点</th>
+                                <th>状态</th>
+                                <th>操作</th>
+                            </tr>
+                        </thead>
+                        <tbody id="agent-tbody">
+                        </tbody>
+                    </table>
+                </div>
+            </div>
+
+            <div id="test-cases-page" class="page">
+                <div class="page-header eval-set-page-title">
+                    <div>
+                        <h1>评测集管理 <span class="page-title-en">Evaluation Sets</span></h1>
+                        <p>创建和管理Agent评测集，配置评测Agent和工具</p>
+                    </div>
+                </div>
+                <div class="eval-set-tabs">
+                    <button class="eval-set-tab active" data-tab="list" onclick="switchEvalSetTab('list')">评测集列表</button>
+                    <button class="eval-set-tab" data-tab="create" onclick="switchEvalSetTab('create')">新建评测集</button>
+                </div>
+                <div id="eval-set-list-tab" class="eval-set-tab-panel active">
+                    <div class="content-card">
+                        <div class="filter-bar">
+                            <input type="text" id="eval-set-search" placeholder="评测名称">
+                            <select id="eval-set-agent-filter">
+                                <option value="">全部Agent</option>
+                            </select>
+                            <select id="eval-set-tool-filter">
+                                <option value="">全部评测工具</option>
+                            </select>
+                            <button class="btn-secondary" id="eval-set-query-btn" onclick="filterEvalSets()">查询</button>
+                            <button class="btn-primary" id="eval-set-batch-run-btn" onclick="batchRunEvalSets()" disabled>批量执行</button>
+                        </div>
+                        <table class="data-table" id="eval-set-table">
+                            <thead>
+                                <tr>
+                                    <th class="checkbox-col"><input type="checkbox" id="eval-set-select-all" title="全选" onchange="toggleAllEvalSets(this.checked)"></th>
+                                    <th>评测集名称</th>
+                                    <th>Agent</th>
+                                    <th>评测工具</th>
+                                    <th>指标</th>
+                                    <th>测试项数量</th>
+                                    <th>创建时间</th>
+                                    <th>更新时间</th>
+                                    <th>状态</th>
+                                    <th>操作</th>
+                                </tr>
+                            </thead>
+                            <tbody id="eval-set-tbody">
+                            </tbody>
+                        </table>
+                    </div>
+                </div>
+                <div id="eval-set-create-tab" class="eval-set-tab-panel">
+                    <!-- 二级页签：手动添加 / 导入文件，两套表单各自独立、互不共用选择框 -->
+                    <div class="create-mode-tabs" id="eval-set-create-mode-tabs">
+                        <button type="button" class="create-mode-tab active" data-mode="manual" onclick="switchEvalSetCreateMode('manual')">
+                            <span class="create-mode-tab-icon">✎</span> 手动添加
+                        </button>
+                        <button type="button" class="create-mode-tab" data-mode="import" onclick="switchEvalSetCreateMode('import')">
+                            <span class="create-mode-tab-icon">⬆</span> 导入文件
+                        </button>
+                    </div>
+
+                    <!-- ============ 手动添加 ============ -->
+                    <div id="eval-set-create-manual-panel" class="create-mode-panel active">
+                    <div class="content-card">
+                        <div class="form-group">
+                            <label>评测集名称</label>
+                            <input type="text" id="eval-set-create-name" placeholder="请输入评测集名称">
+                        </div>
+                        <div class="form-row">
+                            <div class="form-group">
+                                <label>选择Agent</label>
+                                <select id="eval-set-create-agent" onchange="updateEvalSetCreateSample()">
+                                    <option value="">请选择Agent</option>
+                                </select>
+                            </div>
+                            <div class="form-group">
+                                <label>评测工具</label>
+                                <select id="eval-set-create-tool" onchange="onEvalSetCreateToolChange()">
+                                    <option value="">请选择评测工具</option>
+                                </select>
+                            </div>
+                            <div class="form-group" id="eval-set-create-phase-group" style="display: none;">
+                                <label>评测阶段</label>
+                                <select id="eval-set-create-phase" onchange="loadEvalSetCreateMetrics()">
+                                    <option value="">请选择阶段</option>
+                                </select>
+                            </div>
+                            <div class="form-group">
+                                <label>评测指标</label>
+                                <select id="eval-set-create-metric" onchange="updateEvalSetCreateSample()">
+                                    <option value="">请选择指标</option>
+                                </select>
+                                <div class="metric-trace-hint" id="eval-set-create-metric-trace-hint" style="display:none;"></div>
+                            </div>
+                        </div>
+                        <details class="metrics-doc-card" id="eval-set-create-metrics-doc">
+                            <summary>
+                                <span class="metrics-doc-toggle">
+                                    <span class="metrics-doc-toggle-icon">›</span>
+                                    评测指标说明
+                                </span>
+                                <span class="metrics-doc-hint" id="eval-set-create-metrics-doc-hint">-</span>
+                            </summary>
+                            <div class="metrics-doc-body" id="eval-set-create-metrics-doc-body"></div>
+                        </details>
+                        <div class="sample-card">
+                            <div class="sample-card-header">
+                                <strong>测试项JSON样例</strong>
+                                <div class="sample-card-actions">
+                                    <button type="button" class="btn-small secondary" onclick="fillEvalSetCreateSample()">填入样例</button>
+                                    <button type="button" class="btn-small primary" onclick="addEvalSetCreateTestItem()">＋ 新增一条样例</button>
+                                </div>
+                            </div>
+                            <pre id="eval-set-create-sample"></pre>
+                        </div>
+                        <div class="form-group" id="eval-set-create-preview-group" style="display: none;">
+                            <div class="preview-group-header">
+                                <label>已添加测试项 <span id="eval-set-create-preview-count" class="preview-count-badge">0</span></label>
+                                <button class="btn-small secondary" onclick="addEvalSetCreateCaseRow()">＋ 添加用例行</button>
+                            </div>
+                            <div class="preview-table-container">
+                                <table class="data-table" id="eval-set-create-preview-table">
+                                    <thead>
+                                        <tr>
+                                            <th style="width:40px;">#</th>
+                                            <th>名称</th>
+                                            <th>查询内容</th>
+                                            <th>期望输出</th>
+                                            <th>标签</th>
+                                            <th style="width:90px;">操作</th>
+                                        </tr>
+                                    </thead>
+                                    <tbody id="eval-set-create-preview-tbody"></tbody>
+                                </table>
+                            </div>
+                        </div>
+                        <div class="form-group" id="eval-set-create-textarea-group">
+                            <label>测试项（JSON数组）</label>
+                            <textarea id="eval-set-create-test-cases" rows="10" oninput="renderEvalSetCreatePreview()" placeholder='[{"name":"测试项1","query":"输入问题","expected":"期望输出","tags":"tag1"}]'></textarea>
+                        </div>
+                        <div class="modal-actions">
+                            <button class="btn-secondary" onclick="resetEvalSetCreateForm()">重置</button>
+                            <button class="btn-primary" onclick="createEvalSetFromTab()">保存评测集</button>
+                        </div>
+                    </div>
+                    </div>
+
+                    <!-- ============ 导入文件（独立选择框，不与手动页签共用） ============ -->
+                    <div id="eval-set-create-import-panel" class="create-mode-panel">
+                    <div class="content-card">
+                        <div class="form-group">
+                            <label>评测集名称</label>
+                            <input type="text" id="eval-set-import-name" placeholder="请输入评测集名称（留空则使用文件名）">
+                        </div>
+                        <div class="form-row">
+                            <div class="form-group">
+                                <label>选择Agent</label>
+                                <select id="eval-set-import-agent" onchange="updateEvalSetImportSample()">
+                                    <option value="">请选择Agent</option>
+                                </select>
+                            </div>
+                            <div class="form-group">
+                                <label>评测工具</label>
+                                <select id="eval-set-import-tool" onchange="onEvalSetImportToolChange()">
+                                    <option value="">请选择评测工具</option>
+                                </select>
+                            </div>
+                            <div class="form-group" id="eval-set-import-phase-group" style="display: none;">
+                                <label>评测阶段</label>
+                                <select id="eval-set-import-phase" onchange="loadEvalSetImportMetrics()">
+                                    <option value="">请选择阶段</option>
+                                </select>
+                            </div>
+                            <div class="form-group">
+                                <label>评测指标</label>
+                                <select id="eval-set-import-metric" onchange="updateEvalSetImportSample()">
+                                    <option value="">请选择指标</option>
+                                </select>
+                                <div class="metric-trace-hint" id="eval-set-import-metric-trace-hint" style="display:none;"></div>
+                            </div>
+                        </div>
+                        <details class="metrics-doc-card" id="eval-set-import-metrics-doc">
+                            <summary>
+                                <span class="metrics-doc-toggle">
+                                    <span class="metrics-doc-toggle-icon">›</span>
+                                    评测指标说明
+                                </span>
+                                <span class="metrics-doc-hint" id="eval-set-import-metrics-doc-hint">-</span>
+                            </summary>
+                            <div class="metrics-doc-body" id="eval-set-import-metrics-doc-body"></div>
+                        </details>
+                        <div class="sample-card">
+                            <div class="sample-card-header">
+                                <strong>导入文件样例</strong>
+                                <div class="sample-card-actions">
+                                    <button type="button" class="btn-small secondary" onclick="downloadTestCaseSample('eval-set-import-sample')">下载JSON样例</button>
+                                    <button type="button" class="btn-small secondary" onclick="downloadTestCaseExcelSample('eval-set-import-sample')">下载Excel样例</button>
+                                </div>
+                            </div>
+                            <pre id="eval-set-import-sample"></pre>
+                        </div>
+                        <div class="form-group">
+                            <label>选择文件 <span class="help-inline">支持 JSON / CSV / Excel（.xlsx）</span></label>
+                            <input type="file" id="eval-set-import-file" accept=".json,.csv,.xlsx" onchange="previewEvalSetImportFile()">
+                        </div>
+                        <div id="eval-set-import-error" class="error-message" style="display: none;"></div>
+                        <div class="form-group" id="eval-set-import-preview-group" style="display: none;">
+                            <div class="preview-group-header">
+                                <label>预览：共 <span id="eval-set-import-count" class="preview-count-badge">0</span> 个测试用例</label>
+                                <label class="select-all-label"><input type="checkbox" id="eval-set-import-all" checked onchange="toggleAllEvalSetImport()"> 全选</label>
+                            </div>
+                            <div class="preview-table-container">
+                                <table class="data-table">
+                                    <thead>
+                                        <tr>
+                                            <th style="width:40px;"></th>
+                                            <th>名称</th>
+                                            <th>查询内容</th>
+                                            <th>期望输出</th>
+                                        </tr>
+                                    </thead>
+                                    <tbody id="eval-set-import-tbody"></tbody>
+                                </table>
+                            </div>
+                        </div>
+                        <div class="modal-actions">
+                            <button class="btn-secondary" onclick="resetEvalSetImportForm()">重置</button>
+                            <button class="btn-primary" onclick="createEvalSetFromImport()">导入并保存评测集</button>
+                        </div>
+                    </div>
+                    </div>
+                </div>
+            </div>
+
+            <div id="tasks-page" class="page">
+                <div class="page-header">
+                    <h1>评测任务 <span class="page-title-en">Evaluation Tasks</span></h1>
+                </div>
+                <div class="content-card">
+                    <div class="filter-bar">
+                        <input type="text" id="task-name-filter" placeholder="任务名称" oninput="filterTasks()">
+                        <select id="task-agent-filter" onchange="filterTasks()">
+                            <option value="">全部Agent</option>
+                        </select>
+                        <select id="task-tool-filter" onchange="filterTasks()">
+                            <option value="">全部工具</option>
+                        </select>
+                        <select id="task-status-filter" onchange="filterTasks()">
+                            <option value="">全部状态</option>
+                            <option value="pending">待执行</option>
+                            <option value="running">执行中</option>
+                            <option value="completed">已完成</option>
+                            <option value="failed">失败</option>
+                            <option value="stopped">已停止</option>
+                        </select>
+                    </div>
+                    <table class="data-table" id="task-table">
+                        <thead>
+                            <tr>
+                                <th>任务名称</th>
+                                <th>Agent</th>
+                                <th>评测工具</th>
+                                <th>评测指标</th>
+                                <th>用例数量</th>
+                                <th>状态</th>
+                                <th>创建时间</th>
+                                <th>更新时间</th>
+                                <th>操作</th>
+                            </tr>
+                        </thead>
+                        <tbody id="task-tbody">
+                        </tbody>
+                    </table>
+                </div>
+            </div>
+
+            <div id="reports-page" class="page">
+                <div class="page-header">
+                    <h1>评测报告 <span class="page-title-en">Reports</span></h1>
+                <div class="header-actions" id="report-detail-actions" style="display: none;">
+                        <button class="btn-secondary" onclick="backToReportList()">返回列表</button>
+                        <button class="btn-secondary" onclick="exportReport('markdown')">导出Markdown</button>
+                        <button class="btn-secondary" onclick="exportReport('json')">导出JSON</button>
+                </div>
+                </div>
+                <div class="content-card" id="report-list-view">
+                    <div class="filter-bar">
+                        <select id="report-set-filter" onchange="filterReports()">
+                            <option value="">全部评测集</option>
+                        </select>
+                        <select id="report-agent-filter" onchange="filterReports()">
+                            <option value="">全部Agent</option>
+                        </select>
+                        <select id="report-tool-filter" onchange="filterReports()">
+                            <option value="">全部工具</option>
+                        </select>
+                    </div>
+                    <table class="data-table" id="report-list-table">
+                        <thead>
+                            <tr>
+                                <th>评测集</th>
+                                <th>Agent</th>
+                                <th>工具</th>
+                                <th>最新报告时间</th>
+                                <th>通过率</th>
+                                <th>用例数</th>
+                                <th>操作</th>
+                            </tr>
+                        </thead>
+                        <tbody id="report-list-tbody">
+                        </tbody>
+                    </table>
+                </div>
+                <div class="content-card" id="pipeline-reports-section">
+                    <div class="section-head" style="display:flex;align-items:center;justify-content:space-between;margin-bottom:14px;">
+                        <h2 style="margin:0;font-size:16px;">持续评测构建报告
+                            <span style="font-size:12px;color:var(--text-muted);font-weight:400;">（来自 PikoCI，HTML 完整报告）</span>
+                        </h2>
+                        <button type="button" class="btn-small secondary" onclick="navigateTo('pipeline')" id="pipeline-reports-goto">前往持续评测 →</button>
+                    </div>
+                    <table class="data-table" id="pipeline-reports-table">
+                        <thead>
+                            <tr>
+                                <th>构建</th>
+                                <th>被测 Agent</th>
+                                <th>评测引擎</th>
+                                <th>时间</th>
+                                <th>平均分</th>
+                                <th>通过率</th>
+                                <th>通过/失败</th>
+                                <th>操作</th>
+                            </tr>
+                        </thead>
+                        <tbody id="pipeline-reports-tbody">
+                        </tbody>
+                    </table>
+                </div>
+                <div class="content-card" id="report-detail-view" style="display: none;">
+                    <div class="report-summary">
+                        <div class="summary-item">
+                            <h4>通过率</h4>
+                            <div class="progress-bar">
+                                <div class="progress-fill" id="report-pass-rate" style="width: 0%"></div>
+                            </div>
+                            <span id="report-pass-rate-text">0%</span>
+                        </div>
+                        <div class="summary-item">
+                            <h4>总分</h4>
+                            <p id="report-total-score">0</p>
+                        </div>
+                        <div class="summary-item">
+                            <h4>用例总数</h4>
+                            <p id="report-total-cases">0</p>
+                        </div>
+                    </div>
+                    <div class="efficiency-summary" id="report-efficiency-summary" style="display:none;">
+                        <h4 class="efficiency-title">效率概览</h4>
+                        <div class="efficiency-grid">
+                            <div class="eff-stat">
+                                <span class="eff-stat-label">响应延迟 P50</span>
+                                <span class="eff-stat-value" id="report-latency-p50">—</span>
+                            </div>
+                            <div class="eff-stat">
+                                <span class="eff-stat-label">P95</span>
+                                <span class="eff-stat-value" id="report-latency-p95">—</span>
+                            </div>
+                            <div class="eff-stat">
+                                <span class="eff-stat-label">P99</span>
+                                <span class="eff-stat-value" id="report-latency-p99">—</span>
+                            </div>
+                            <div class="eff-stat">
+                                <span class="eff-stat-label">最大延迟</span>
+                                <span class="eff-stat-value" id="report-latency-max">—</span>
+                            </div>
+                            <div class="eff-stat">
+                                <span class="eff-stat-label">平均步数</span>
+                                <span class="eff-stat-value" id="report-steps-avg">—</span>
+                            </div>
+                            <div class="eff-stat">
+                                <span class="eff-stat-label">最大步数</span>
+                                <span class="eff-stat-value" id="report-steps-max">—</span>
+                            </div>
+                        </div>
+                        <p class="efficiency-note" id="report-efficiency-note"></p>
+                    </div>
+                    <table class="data-table" id="report-table">
+                        <thead>
+                            <tr>
+                                <th>用例名称</th>
+                                <th>输入</th>
+                                <th>输出</th>
+                                <th>期望</th>
+                                <th>评测结果</th>
+                                <th>执行日志</th>
+                            </tr>
+                        </thead>
+                        <tbody id="report-tbody">
+                        </tbody>
+                    </table>
+                </div>
+            </div>
+
+            <div id="evaluation-setup-page" class="page">
+                <div class="page-header">
+                    <h1>评测工具选择 <span class="page-title-en">Select Tool</span></h1>
+                    <button class="btn-primary" onclick="createEvaluationTask()">创建评测任务</button>
+                </div>
+                <div class="content-card">
+                    <h3>选择评测工具</h3>
+                    <div class="tool-selection-grid" id="tool-selection-grid">
+                    </div>
+                </div>
+                <div class="content-card" id="metric-selection-card" style="display: none;">
+                    <h3>选择评测指标</h3>
+                    <div class="metric-selection-grid" id="metric-selection-grid">
+                    </div>
+                </div>
+                <div class="content-card">
+                    <h3>评测配置</h3>
+                    <div class="form-group">
+                        <label>选择Agent</label>
+                        <select id="eval-agent-select">
+                            <option value="">请选择Agent</option>
+                        </select>
+                    </div>
+                    <div class="form-group">
+                        <label>选择测试用例集</label>
+                        <select id="eval-test-case-set">
+                            <option value="">全部测试用例</option>
+                        </select>
+                    </div>
+                    <div class="form-group">
+                        <label>并发数</label>
+                        <input type="number" id="eval-concurrency" value="3" min="1" max="10">
+                    </div>
+                </div>
+            </div>
+
+            <div id="settings-page" class="page">
+                <div class="page-header">
+                    <h1>系统设置 <span class="page-title-en">Settings</span></h1>
+                    <p>所有密钥、模型与连接参数都可在此页面配置，保存后写入 <code>instance/system_config.json</code>，无需重启即可在下次评测时生效。密钥字段回显时已脱敏。</p>
+                </div>
+
+                <div class="settings-actions-bar">
+                    <button class="btn-primary" onclick="saveSettings()">💾 保存全部设置</button>
+                    <span id="settings-save-hint" class="save-hint"></span>
+                </div>
+
+                <div class="settings-grid">
+                    <!-- 火山方舟 -->
+                    <div class="content-card settings-card">
+                        <h3>火山方舟模型配置</h3>
+                        <p class="card-hint">DeepEval / TruLens 判分及示例 Agent 执行使用。</p>
+                        <div class="form-group">
+                            <label>方舟 API Key</label>
+                            <input type="password" id="ark-api-key" placeholder="未配置" autocomplete="off">
+                        </div>
+                        <div class="form-group">
+                            <label>方舟 Base URL</label>
+                            <input type="text" id="ark-base-url" placeholder="https://ark.cn-beijing.volces.com/api/v3">
+                        </div>
+                        <div class="form-group">
+                            <label>执行模型</label>
+                            <input type="text" id="execution-model" placeholder="如 glm-5.2 / deepseek-v4-pro">
+                        </div>
+                        <div class="form-group">
+                            <label>评测模型（LLM-as-judge）</label>
+                            <input type="text" id="evaluation-model" placeholder="如 deepseek-v4-pro">
+                        </div>
+                    </div>
+
+                    <!-- RAGAS -->
+                    <div class="content-card settings-card">
+                        <h3>RAGAS 专用配置</h3>
+                        <p class="card-hint">留空 API Key / Base URL / 模型则复用火山方舟配置；RAGAS 通常需要独立的 embedding 模型。</p>
+                        <div class="form-group">
+                            <label>RAGAS API Key（可选）</label>
+                            <input type="password" id="ragas-api-key" placeholder="留空则复用方舟 Key" autocomplete="off">
+                        </div>
+                        <div class="form-group">
+                            <label>RAGAS Base URL</label>
+                            <input type="text" id="ragas-base-url" placeholder="留空则复用方舟 Base URL">
+                        </div>
+                        <div class="form-group">
+                            <label>RAGAS 判分模型</label>
+                            <input type="text" id="ragas-model" placeholder="模型名或 Endpoint ID">
+                        </div>
+                        <div class="form-group">
+                            <label>Embedding 模型</label>
+                            <input type="text" id="ragas-embedding-model" placeholder="如 text-embedding / endpoint id">
+                        </div>
+                        <div class="form-group">
+                            <label>Embedding Base URL</label>
+                            <input type="text" id="ragas-embedding-base-url" placeholder="留空则复用 RAGAS Base URL">
+                        </div>
+                        <div class="form-group">
+                            <label>单条评分超时（秒）</label>
+                            <input type="number" id="ragas-timeout-seconds" min="10" placeholder="90">
+                        </div>
+                    </div>
+
+                    <!-- 引擎路径 -->
+                    <div class="content-card settings-card">
+                        <h3>评测引擎路径</h3>
+                        <p class="card-hint">各评测命令/可执行文件位置；Promptfoo 路径应为可执行命令而非配置文件。</p>
+                        <div class="form-group">
+                            <label>Promptfoo 路径</label>
+                            <input type="text" id="promptfoo-path" placeholder="promptfoo 或 node_modules/.bin/promptfoo">
+                        </div>
+                        <div class="form-group">
+                            <label>Promptfoo 结果目录</label>
+                            <input type="text" id="promptfoo-results" placeholder="./results/promptfoo">
+                        </div>
+                        <div class="form-group">
+                            <label>DeepEval 路径</label>
+                            <input type="text" id="deepeval-path" placeholder="deepeval">
+                        </div>
+                        <div class="form-group">
+                            <label>TruLens 路径</label>
+                            <input type="text" id="trulens-path" placeholder="trulens">
+                        </div>
+                    </div>
+
+                    <!-- 运行参数 -->
+                    <div class="content-card settings-card">
+                        <h3>运行参数与超时</h3>
+                        <p class="card-hint">并发数、单任务用例上限及各类超时。</p>
+                        <div class="form-group">
+                            <label>最大并发任务数</label>
+                            <input type="number" id="max-concurrent-tasks" min="1" placeholder="3">
+                        </div>
+                        <div class="form-group">
+                            <label>单任务最大用例数</label>
+                            <input type="number" id="max-test-cases-per-task" min="1" placeholder="1000">
+                        </div>
+                        <div class="form-group">
+                            <label>用例执行超时（秒）</label>
+                            <input type="number" id="test-case-timeout" min="1" placeholder="5">
+                        </div>
+                        <div class="form-group">
+                            <label>Agent API 请求超时（秒）</label>
+                            <input type="number" id="agent-api-timeout" min="1" placeholder="120">
+                        </div>
+                    </div>
+
+                    <!-- PikoCI 连接 -->
+                    <div class="content-card settings-card">
+                        <h3>PikoCI 编排引擎连接</h3>
+                        <p class="card-hint">平台通过本机 pikoci CLI 驱动流水线，以下为连接与登录参数。</p>
+                        <div class="form-group">
+                            <label>服务地址</label>
+                            <input type="text" id="pikoci-url" placeholder="http://localhost:8080">
+                        </div>
+                        <div class="form-group">
+                            <label>团队 (Team)</label>
+                            <input type="text" id="pikoci-team" placeholder="main">
+                        </div>
+                        <div class="form-group">
+                            <label>流水线名称</label>
+                            <input type="text" id="pikoci-pipeline" placeholder="agent-eval">
+                        </div>
+                        <div class="form-group">
+                            <label>作业名称 (Job)</label>
+                            <input type="text" id="pikoci-job" placeholder="evaluate">
+                        </div>
+                        <div class="form-group">
+                            <label>登录用户名</label>
+                            <input type="text" id="pikoci-user" placeholder="admin">
+                        </div>
+                        <div class="form-group">
+                            <label>登录密码</label>
+                            <input type="password" id="pikoci-pass" placeholder="未配置" autocomplete="off">
+                        </div>
+                    </div>
+
+                    <!-- 日志 -->
+                    <div class="content-card settings-card">
+                        <h3>日志</h3>
+                        <p class="card-hint">日志级别影响输出详细程度，日志文件为相对项目根目录的路径。</p>
+                        <div class="form-group">
+                            <label>日志级别</label>
+                            <select id="log-level">
+                                <option value="DEBUG">DEBUG</option>
+                                <option value="INFO">INFO</option>
+                                <option value="WARNING">WARNING</option>
+                                <option value="ERROR">ERROR</option>
+                            </select>
+                        </div>
+                        <div class="form-group">
+                            <label>日志文件</label>
+                            <input type="text" id="log-file" placeholder="app.log">
+                        </div>
+                    </div>
+                </div>
+
+                <div class="content-card settings-note">
+                    <p>ℹ️ <strong>启动期配置</strong>：数据库连接串（DATABASE_URL）、Flask 会话密钥（SECRET_KEY）需在进程启动前通过 <code>.env</code> 指定，因为应用启动即建立数据库连接与会话签名；其余所有评测相关密钥与连接参数均已支持页面配置。修改数据库连接后需重启平台。</p>
+                </div>
+            </div>
+
+            <!-- 持续评测（PikoCI） -->
+            <div id="pipeline-page" class="page">
+                <div class="page-header">
+                    <h1>持续评测 <span class="page-title-en">CI Evaluation</span></h1>
+                    <p>通过 PikoCI 一键运行 DeepEval + Promptfoo + TruLens，自动汇总并生成 HTML 报告</p>
+                </div>
+
+                <!-- 被测对象：Agent + 评测集 -->
+                <div class="content-card pipeline-card pipeline-target-card">
+                    <h3>① 选择被测 Agent 与评测集</h3>
+                    <p class="card-hint">从平台已配置的 Agent 和评测集中选择本次持续评测的对象。保存后即落盘，下次"开始评测"生效，无需重启 PikoCI。</p>
+                    <div class="target-grid">
+                        <div class="target-field">
+                            <label>被测 Agent</label>
+                            <select id="pipeline-agent-select" class="target-select" onchange="onPipelineTargetChange()"></select>
+                            <span id="pipeline-agent-detail" class="target-detail"></span>
+                        </div>
+                        <div class="target-field">
+                            <label>评测集</label>
+                            <select id="pipeline-evalset-select" class="target-select" onchange="onPipelineTargetChange()"></select>
+                            <span id="pipeline-evalset-detail" class="target-detail"></span>
+                        </div>
+                        <div class="target-actions">
+                            <button class="btn-primary" onclick="savePipelineTarget()">保存评测对象</button>
+                            <span id="pipeline-target-hint" class="save-hint"></span>
+                        </div>
+                    </div>
+                </div>
+
+                <div class="pipeline-grid">
+                    <!-- 左：评测范围 -->
+                    <div class="content-card pipeline-card">
+                        <h3>② 选择评测工具与指标</h3>
+                        <p class="card-hint">勾选要运行的工具和指标，保存后点"开始评测"即生效，无需重启。留空指标列表 = 该工具的所有指标都跑。</p>
+                        <div class="selection-legend">
+                            <span><i class="dot in-use"></i> 在用：当前测试用例中配置了该指标</span>
+                            <span><i class="dot unused"></i> 未使用：引擎支持但当前用例未配置（仅勾选这类指标不会有任何用例运行）</span>
+                        </div>
+                        <div id="pipeline-tools" class="pipeline-tools">
+                            <div class="pipeline-loading">加载中…</div>
+                        </div>
+                        <div class="pipeline-actions">
+                            <button class="btn-primary" onclick="savePipelineSelection()">保存评测范围</button>
+                            <span id="pipeline-save-hint" class="save-hint"></span>
+                        </div>
+                    </div>
+
+                    <!-- 右：触发 + 状态 -->
+                    <div class="content-card pipeline-card">
+                        <h3>③ 开始评测</h3>
+                        <p class="card-hint">点击下方按钮立即触发一次评测。流水线依次执行 7 个步骤，结果与报告在下方实时查看。</p>
+                        <button id="pipeline-trigger-btn" class="btn-primary btn-trigger" onclick="triggerPipeline()">
+                            ▶ 开始评测
+                        </button>
+                        <div id="pipeline-trigger-hint" class="trigger-hint"></div>
+
+                        <div class="pipeline-latest-report" id="pipeline-latest-report" style="display:none;">
+                            <div class="latest-meta">
+                                <span class="latest-label">最新报告</span>
+                                <span id="pipeline-report-id" class="latest-id"></span>
+                            </div>
+                            <div id="pipeline-report-scores" class="latest-scores"></div>
+                            <a id="pipeline-report-link" class="btn-secondary btn-small" target="_blank">查看 HTML 报告 ↗</a>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- 当前构建进度 -->
+                <div class="content-card pipeline-card" id="pipeline-current-card" style="display:none;">
+                    <h3>本次构建 <span id="pipeline-build-id" class="build-id"></span></h3>
+                    <div id="pipeline-steps" class="pipeline-steps"></div>
+                    <pre id="pipeline-log" class="pipeline-log"></pre>
+                </div>
+
+                <!-- 历史 -->
+                <div class="content-card pipeline-card">
+                    <h3>构建历史</h3>
+                    <div id="pipeline-history" class="pipeline-history">
+                        <div class="pipeline-loading">暂无构建记录</div>
+                    </div>
+                </div>
+            </div>
+        </main>
+    </div>
+
+    <div id="agent-modal" class="modal">
+        <div class="modal-content modal-lg">
+            <span class="close" onclick="closeModal('agent-modal')">&times;</span>
+            <h2 id="agent-modal-title">添加Agent</h2>
+            <input type="hidden" id="agent-id">
+            <div class="form-group">
+                <label>Agent名称</label>
+                <input type="text" id="agent-name" placeholder="请输入Agent名称">
+            </div>
+            <div class="form-group">
+                <label>版本号</label>
+                <input type="text" id="agent-version" placeholder="如: v1.0.0">
+            </div>
+            <div class="form-group">
+                <label>接入方式</label>
+                <select id="agent-access-type" onchange="toggleAgentAccessType()">
+                    <option value="api">API接口</option>
+                    <option value="script">脚本文件</option>
+                    <option value="local">内置Agent</option>
+                </select>
+            </div>
+
+            <div id="api-config-section">
+                <div class="form-group">
+                    <label>API端点</label>
+                    <input type="text" id="agent-endpoint" placeholder="http://localhost:8080/api">
+                </div>
+                <div class="form-group">
+                    <label>API密钥</label>
+                    <input type="text" id="agent-api-key" placeholder="可选的API密钥">
+                </div>
+                <div class="form-group">
+                    <label>HTTP方法</label>
+                    <select id="agent-api-method">
+                        <option value="POST">POST</option>
+                        <option value="GET">GET</option>
+                    </select>
+                </div>
+                <div class="form-group">
+                    <label>请求头配置（JSON格式）</label>
+                    <textarea id="agent-api-headers" placeholder='{"Authorization": "Bearer xxx"}' rows="2"></textarea>
+                </div>
+                <div class="form-group">
+                    <label>请求参数映射（JSON格式）</label>
+                    <textarea id="agent-request-mapping" placeholder='{"query": "{query}"}' rows="2"></textarea>
+                </div>
+            </div>
+
+            <div id="script-config-section" style="display: none;">
+                <div class="form-group">
+                    <label>上传脚本文件</label>
+                    <input type="file" id="agent-script-file" accept=".py">
+                    <p class="help-text">仅支持Python脚本，需包含入口函数</p>
+                </div>
+                <div class="form-group">
+                    <label>入口函数名</label>
+                    <input type="text" id="agent-entry-function" value="run_agent" placeholder="脚本中的入口函数名">
+                </div>
+            </div>
+
+            <button class="btn-primary" onclick="saveAgent()">保存</button>
+        </div>
+    </div>
+
+    <div id="eval-set-modal" class="modal">
+        <div class="modal-content modal-lg">
+            <span class="close" onclick="closeModal('eval-set-modal')">&times;</span>
+            <h2 id="eval-set-modal-title">新建评测集</h2>
+            <input type="hidden" id="eval-set-id">
+            <div class="form-group">
+                <label>评测集名称</label>
+                <input type="text" id="eval-set-name" placeholder="请输入评测集名称">
+            </div>
+            <div class="form-row">
+                <div class="form-group">
+                    <label>选择Agent</label>
+                    <select id="eval-set-agent" onchange="updateEvalSetSample()">
+                        <option value="">请选择Agent</option>
+                    </select>
+                </div>
+                <div class="form-group">
+                    <label>评测工具</label>
+                    <select id="eval-set-tool" onchange="onEvalSetToolChange()">
+                        <option value="">请选择评测工具</option>
+                    </select>
+                </div>
+                <div class="form-group" id="eval-set-phase-group" style="display: none;">
+                    <label>评测阶段</label>
+                    <select id="eval-set-phase" onchange="loadEvalSetMetrics()">
+                        <option value="">请选择阶段</option>
+                    </select>
+                </div>
+                <div class="form-group">
+                    <label>评测指标</label>
+                    <select id="eval-set-metric" onchange="updateEvalSetSample()">
+                        <option value="">请选择指标</option>
+                    </select>
+                    <div class="metric-trace-hint" id="eval-set-metric-trace-hint" style="display:none;"></div>
+                </div>
+            </div>
+            <div class="sample-card">
+                <div class="sample-card-header">
+                    <strong>测试项JSON样例</strong>
+                    <button class="btn-small secondary" onclick="fillEvalSetSample()">填入样例</button>
+                </div>
+                <pre id="eval-set-sample"></pre>
+            </div>
+            <div class="form-group">
+                <label>测试项（JSON数组）</label>
+                <textarea id="eval-set-test-cases" rows="10" placeholder='[{"name":"测试项1","query":"输入问题","expected":"期望输出","tags":"tag1"}]'></textarea>
+            </div>
+            <div class="modal-actions">
+                <button class="btn-secondary" onclick="closeModal('eval-set-modal')">取消</button>
+                <button class="btn-primary" onclick="saveEvalSet()">保存</button>
+            </div>
+        </div>
+    </div>
+
+    <div id="test-case-modal" class="modal">
+        <div class="modal-content">
+            <span class="close" onclick="closeModal('test-case-modal')">&times;</span>
+            <h2 id="test-case-modal-title">添加测试用例</h2>
+            <input type="hidden" id="test-case-id">
+            <div class="form-group">
+                <label>绑定信息</label>
+                <div class="info-row">
+                    <span id="test-case-bound-agent" class="status-badge active">-</span>
+                    <span id="test-case-bound-tool" class="status-badge active">-</span>
+                    <span id="test-case-bound-metric" class="status-badge active">-</span>
+                </div>
+            </div>
+            <div class="sample-card">
+                <div class="sample-card-header">
+                    <strong>添加用例样例</strong>
+                    <button class="btn-small secondary" onclick="fillTestCaseSample()">填入样例</button>
+                </div>
+                <pre id="test-case-sample"></pre>
+            </div>
+            <div class="form-group">
+                <label>用例名称</label>
+                <input type="text" id="test-case-name" placeholder="请输入用例名称">
+            </div>
+            <div class="form-group">
+                <label>查询内容</label>
+                <textarea id="test-case-query" placeholder="请输入查询内容" rows="3"></textarea>
+            </div>
+            <div class="form-group">
+                <label>期望输出</label>
+                <textarea id="test-case-expected" placeholder="请输入期望输出" rows="3"></textarea>
+            </div>
+            <div class="form-group">
+                <label>标签分类</label>
+                <input type="text" id="test-case-tags" placeholder="多个标签用逗号分隔">
+            </div>
+            <button class="btn-primary" onclick="saveTestCase()">保存</button>
+        </div>
+    </div>
+
+    <div id="create-case-edit-modal" class="modal">
+        <div class="modal-content">
+            <span class="close" onclick="closeModal('create-case-edit-modal')">&times;</span>
+            <h2>编辑测试项</h2>
+            <input type="hidden" id="create-case-edit-index">
+            <div class="form-group">
+                <label>用例名称</label>
+                <input type="text" id="create-case-edit-name" placeholder="请输入用例名称">
+            </div>
+            <div class="form-group">
+                <label>查询内容</label>
+                <textarea id="create-case-edit-query" placeholder="请输入查询内容" rows="3"></textarea>
+            </div>
+            <div class="form-group">
+                <label>期望输出</label>
+                <textarea id="create-case-edit-expected" placeholder="请输入期望输出" rows="3"></textarea>
+            </div>
+            <div class="form-group">
+                <label>标签分类</label>
+                <input type="text" id="create-case-edit-tags" placeholder="多个标签用逗号分隔">
+            </div>
+            <div class="modal-actions">
+                <button class="btn-secondary" onclick="closeModal('create-case-edit-modal')">取消</button>
+                <button class="btn-primary" onclick="saveCreateCaseEdit()">保存</button>
+            </div>
+        </div>
+    </div>
+
+    <div id="upload-modal" class="modal">
+        <div class="modal-content modal-lg">
+            <span class="close" onclick="closeModal('upload-modal')">&times;</span>
+            <h2>上传测试用例文件</h2>
+            <div class="sample-card">
+                <div class="sample-card-header">
+                    <strong>导入文件样例</strong>
+                    <div class="sample-card-actions">
+                        <button class="btn-small secondary" onclick="downloadTestCaseSample()">下载JSON样例</button>
+                        <button class="btn-small secondary" onclick="downloadTestCaseExcelSample()">下载Excel样例</button>
+                    </div>
+                </div>
+                <div class="sample-card-binding">
+                    <span class="binding-label">将按以下绑定写入：</span>
+                    <span id="upload-bound-agent" class="status-badge active">-</span>
+                    <span id="upload-bound-tool" class="status-badge active">-</span>
+                    <span id="upload-bound-metric" class="status-badge active">-</span>
+                    <span class="binding-hint">（文件中的 agent_id / evaluation_tool / metric 字段会被以上绑定覆盖）</span>
+                </div>
+                <pre id="upload-sample"></pre>
+            </div>
+            <div class="form-group">
+                <label>选择文件</label>
+                <input type="file" id="test-case-file" accept=".json,.csv,.xlsx" onchange="previewTestCases()">
+            </div>
+
+            <div id="upload-preview-section" style="display: none;">
+                <h3>预览</h3>
+                <p class="upload-stats">共 <span id="preview-count">0</span> 个测试用例</p>
+                <div class="preview-table-container">
+                    <table class="data-table" id="preview-table">
+                        <thead>
+                            <tr>
+                                <th><input type="checkbox" id="select-all-preview" checked onchange="toggleAllPreview()"></th>
+                                <th>名称</th>
+                                <th>查询内容</th>
+                                <th>期望输出</th>
+                            </tr>
+                        </thead>
+                        <tbody id="preview-tbody">
+                        </tbody>
+                    </table>
+                </div>
+            </div>
+
+            <div id="upload-error-section" class="error-message" style="display: none;"></div>
+
+            <div class="modal-actions">
+                <button class="btn-secondary" onclick="closeModal('upload-modal')">取消</button>
+                <button class="btn-primary" onclick="confirmTestCasesImport()">确认导入</button>
+            </div>
+
+            <details class="upload-format-doc">
+                <summary>文件格式说明（点击展开）</summary>
+                <p class="help-text">支持 <strong>JSON</strong>（数组）、<strong>CSV</strong> 与 <strong>Excel（.xlsx）</strong>三种格式。CSV / Excel 首行为表头，每行一个用例、每列一个参数。文件只需填写用例内容字段；<strong>Agent、评测工具、评测阶段、评测指标以上方页面选择为准，由系统统一应用于评测</strong>，无需写入文件。</p>
+                <table class="param-doc-table">
+                    <thead>
+                        <tr>
+                            <th>字段</th>
+                            <th>必填</th>
+                            <th>说明</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        <tr>
+                            <td><code>name</code></td>
+                            <td><span class="required-tag">必填</span></td>
+                            <td>用例名称，用于在列表中识别该用例。建议简短可读，例如「天气查询-广州-带伞建议」。</td>
+                        </tr>
+                        <tr>
+                            <td><code>query</code></td>
+                            <td><span class="required-tag">必填</span></td>
+                            <td>输入给 Agent 的用户问题或请求文本。多轮对话场景下填首轮 user 输入。</td>
+                        </tr>
+                        <tr>
+                            <td><code>expected</code></td>
+                            <td><span class="required-tag">必填</span></td>
+                            <td>
+                                期望输出，将与 Agent 实际输出进行比对评分。具体含义随 metric 变化：
+                                <ul class="param-doc-sublist">
+                                    <li><code>contains</code> / <code>not-contains</code>：填一个关键词字符串</li>
+                                    <li><code>contains-any</code>：填多个关键词，用英文逗号分隔，如 <code>天气,计算</code></li>
+                                    <li><code>llm-rubric</code>：填给 LLM 的评分标准描述，如「回答清晰、合理、与问题相关」</li>
+                                    <li><code>similar</code>：填一段参考答案，会用相似度匹配</li>
+                                    <li>DeepEval / TruLens 类指标：填理想答案文本</li>
+                                </ul>
+                            </td>
+                        </tr>
+                        <tr>
+                            <td><code>tags</code></td>
+                            <td><span class="optional-tag">可选</span></td>
+                            <td>
+                                标签分类，多个标签用英文逗号分隔（如 <code>math,task_completion</code>）。<strong>仅作元数据使用</strong>，用于在用例列表/报告中按标签筛选与统计，不影响评分。常见组织方式：
+                                <ul class="param-doc-sublist">
+                                    <li>业务领域：<code>weather</code> / <code>math</code> / <code>finance</code> / <code>customer_service</code></li>
+                                    <li>能力维度：<code>tool_call</code> / <code>reasoning</code> / <code>multi_turn</code> / <code>planning</code></li>
+                                    <li>风险/安全：<code>adversarial</code> / <code>safety</code> / <code>jailbreak</code> / <code>pii</code></li>
+                                    <li>难度/优先级：<code>p0</code> / <code>regression</code> / <code>edge_case</code> / <code>smoke</code></li>
+                                    <li>语言/来源：<code>zh</code> / <code>en</code> / <code>real_user</code> / <code>synthetic</code></li>
+                                </ul>
+                                字段值是自由字符串，不限制具体取值，建议团队内部约定一套统一标签体系。
+                            </td>
+                        </tr>
+                    </tbody>
+                </table>
+                <p class="help-text"><strong>Agent / 评测工具 / 评测阶段 / 评测指标</strong>无需写入文件，均以上方页面所选为准，由系统在评测时统一应用。</p>
+                <p class="help-text"><strong>RAGAS 说明：</strong>建议 JSON 用例提供 <code>input_payload.contexts</code> 和 <code>expected_payload.reference</code> / <code>expected_payload.ground_truth</code>；CSV / Excel 可使用 <code>context</code>、<code>reference</code>、<code>ground_truth</code> 列。</p>
+                <p class="help-text"><strong>CSV / Excel 示例首行：</strong> <code>name,query,expected,tags</code></p>
+            </details>
+        </div>
+    </div>
+
+    <div id="task-modal" class="modal">
+        <div class="modal-content">
+            <span class="close" onclick="closeModal('task-modal')">&times;</span>
+            <h2 id="task-modal-title">创建评测任务</h2>
+            <input type="hidden" id="task-id">
+            <div class="form-group">
+                <label>任务名称</label>
+                <input type="text" id="task-name" placeholder="请输入任务名称">
+            </div>
+            <div class="form-group">
+                <label>选择Agent</label>
+                <select id="task-agent">
+                    <option value="">请选择Agent</option>
+                </select>
+            </div>
+            <div class="form-group">
+                <label>评测工具</label>
+                <div class="checkbox-group">
+                    <label><input type="checkbox" name="eval-tool" value="promptfoo" checked> Promptfoo</label>
+                </div>
+            </div>
+            <div class="form-group">
+                <label>Promptfoo配置</label>
+                <textarea id="task-promptfoo-config" placeholder="可选：自定义promptfoo配置（JSON格式）" rows="5"></textarea>
+            </div>
+            <div class="form-group">
+                <label>选择测试用例</label>
+                <div class="checkbox-group" id="task-test-cases">
+                </div>
+            </div>
+            <button class="btn-primary" onclick="saveTask()">创建任务</button>
+        </div>
+    </div>
+
+    <div id="progress-modal" class="modal">
+        <div class="modal-content modal-lg">
+            <span class="close" onclick="closeModal('progress-modal')">&times;</span>
+            <h2>评测进度</h2>
+            <div class="progress-info">
+                <div class="progress-stat">
+                    <span class="label">状态:</span>
+                    <span class="value" id="progress-status">准备中</span>
+                </div>
+                <div class="progress-stat">
+                    <span class="label">执行进度:</span>
+                    <span class="value" id="progress-percent">0%</span>
+                </div>
+                <div class="progress-stat">
+                    <span class="label">已完成:</span>
+                    <span class="value" id="progress-completed">0/0</span>
+                </div>
+                <div class="progress-stat">
+                    <span class="label">通过率:</span>
+                    <span class="value" id="progress-pass-rate">0%</span>
+                </div>
+                <div class="progress-stat">
+                    <span class="label">通过数:</span>
+                    <span class="value" id="progress-passed">0/0</span>
+                </div>
+            </div>
+            <div class="progress-bar-container">
+                <div class="progress-bar">
+                    <div class="progress-fill" id="progress-fill" style="width: 0%"></div>
+                </div>
+            </div>
+            <div class="progress-details" id="progress-details">
+            </div>
+        </div>
+    </div>
+
+    <script src="/static/js/app.js?v={{ static_version() }}"></script>
+</body>
+</html>
