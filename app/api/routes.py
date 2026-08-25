@@ -588,9 +588,16 @@ def get_pipeline_build(build_number):
 @api_bp.route('/pipeline/reports', methods=['GET'])
 @auth_required
 def list_pipeline_reports():
-    """列出磁盘上已生成 HTML 报告的持续评测构建（最近 20 条）。"""
+    """列出磁盘上已生成 HTML 报告的持续评测构建（最近 20 条）。
+
+    支持与评测报告页一致的筛选：?agent_id=<id>&tool_name=<deepeval|promptfoo|...>。
+    """
     from app.services.pipeline_service import list_reports
-    return jsonify({'success': True, 'data': list_reports(limit=20)})
+    agent_id = request.args.get('agent_id')
+    tool_name = request.args.get('tool_name')
+    return jsonify({'success': True, 'data': list_reports(
+        limit=20, agent_id=agent_id, tool_name=tool_name
+    )})
 
 
 @api_bp.route('/pipeline/report/latest', methods=['GET'])

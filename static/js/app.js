@@ -2567,18 +2567,28 @@ async function loadReports() {
 
 // 持续评测（PikoCI）构建的 HTML 报告，存放在 eval_output/<run_id>/，由
 // /api/pipeline/reports 列出。点"查看报告"在新标签打开自包含的 HTML 报告。
+// 与上方平台报告共享 Agent / 工具筛选；评测集筛选对 CI 构建不适用。
 async function loadPipelineReports() {
     const tbody = document.getElementById('pipeline-reports-tbody');
     const section = document.getElementById('pipeline-reports-section');
     if (!tbody || !section) return;
     try {
-        const result = await apiCall('/pipeline/reports');
+        const params = new URLSearchParams();
+        const agentId = document.getElementById('report-agent-filter')?.value;
+        const toolName = document.getElementById('report-tool-filter')?.value;
+        if (agentId) params.set('agent_id', agentId);
+        if (toolName) params.set('tool_name', toolName);
+        const filterActive = !!(agentId || toolName);
+
+        const result = await apiCall(`/pipeline/reports${params.toString() ? `?${params.toString()}` : ''}`);
         const reports = result.data || [];
+        section.style.display = '';
         if (!reports.length) {
-            section.style.display = 'none';
+            tbody.innerHTML = `<tr><td colspan="8" style="text-align:center;">${
+                filterActive ? '没有匹配当前筛选的持续评测构建' : '暂无持续评测报告'
+            }</td></tr>`;
             return;
         }
-        section.style.display = '';
         tbody.innerHTML = reports.map(r => {
             const passRate = r.pass_rate != null ? (Number(r.pass_rate) * 100).toFixed(1) : '-';
             const avg = r.avg_score != null ? Number(r.avg_score).toFixed(1) : '-';
@@ -2641,7 +2651,8 @@ function fillReportToolFilter(tools) {
 }
 
 async function filterReports() {
-    await loadReportsList();
+    // 平台报告与持续评测报告共用 Agent/工具筛选，两者一起刷新。
+    await Promise.all([loadReportsList(), loadPipelineReports()]);
 }
 
 async function loadReportsList() {

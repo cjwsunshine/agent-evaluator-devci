@@ -761,11 +761,17 @@ def latest_report() -> dict[str, Any] | None:
     return reports[0] if reports else None
 
 
-def list_reports(limit: int = 20) -> list[dict[str, Any]]:
+def list_reports(limit: int = 20, agent_id: str | None = None,
+                 tool_name: str | None = None) -> list[dict[str, Any]]:
     """列出磁盘上已生成 HTML 报告的持续评测构建（按时间倒序）。
 
     每个 run 对应 ``eval_output/<run_id>/``，从其 ``summary.json`` 读取综合分数、
     通过率、各工具状态等。用于平台「评测报告」页展示持续评测历史报告。
+
+    可选筛选：
+      - ``agent_id``：平台 Agent 的 id，按 Agent 名称匹配（构建产物里只存名称）。
+      - ``tool_name``：引擎规范名（deepeval/promptfoo/trulens/ragas），仅返回
+        实际运行成功该引擎的构建。
     """
     if not EVAL_OUTPUT_DIR.exists():
         return []
@@ -776,8 +782,21 @@ def list_reports(limit: int = 20) -> list[dict[str, Any]]:
     # 按目录修改时间倒序（与 build 完成时间一致）
     candidates.sort(key=lambda d: d.stat().st_mtime, reverse=True)
 
+    # Resolve the platform Agent name for the agent filter once (CI artifacts
+    # only carry the agent label, not its id).
+    agent_name_filter: str | None = None
+    if agent_id:
+        try:
+            from app.models.models import Agent
+            agent = Agent.query.filter_by(id=int(agent_id)).first()
+            if agent:
+                agent_name_filter = agent.name
+        except (TypeError, ValueError):
+            agent_name_filter = None
+    tool_filter = (tool_name or "").strip().lower() or None
+
     reports: list[dict[str, Any]] = []
-    for d in candidates[: max(limit, 1)]:
+    for d in candidates:
         summary, agent_label, timestamp = _read_run_summary(d)
         overall = summary.get("overall") or {}
         tools = summary.get("tools") or {}
@@ -787,11 +806,17 @@ def list_reports(limit: int = 20) -> list[dict[str, Any]]:
             "trulens": "TruLens",
             "ragas": "RAGAS",
         }
-        ran_tools = [
-            tool_labels.get(t, t)
-            for t, v in tools.items()
+        ran_tool_keys = [
+            t for t, v in tools.items()
             if isinstance(v, dict) and v.get("status") == "ok"
         ]
+        ran_tools = [tool_labels.get(t, t) for t in ran_tool_keys]
+
+        if agent_name_filter and agent_label != agent_name_filter:
+            continue
+        if tool_filter and tool_filter not in ran_tool_keys:
+            continue
+
         reports.append({
             "run_id": d.name,
             "report_url": f"/pipeline/report/{d.name}",
@@ -807,6 +832,8 @@ def list_reports(limit: int = 20) -> list[dict[str, Any]]:
             "tools_run": overall.get("tools_run"),
             "tools": ran_tools,
         })
+        if len(reports) >= max(limit, 1):
+            break
     return reports
 
 
