@@ -701,8 +701,11 @@
             <!-- 持续评测（PikoCI） -->
             <div id="pipeline-page" class="page">
                 <div class="page-header">
-                    <h1>持续评测 <span class="page-title-en">CI Evaluation</span></h1>
-                    <p>通过 PikoCI 一键运行 DeepEval + Promptfoo + TruLens，自动汇总并生成 HTML 报告</p>
+                    <div class="page-header-titles">
+                        <h1>持续评测 <span class="page-title-en">CI Evaluation</span></h1>
+                        <p>通过 PikoCI 一键运行 DeepEval + Promptfoo + TruLens，自动汇总并生成 HTML 报告</p>
+                    </div>
+                    <button class="btn-secondary btn-open-pikoci" onclick="openPikoci()" title="在新标签页打开 PikoCI 控制台">打开 PikoCI 控制台 ↗</button>
                 </div>
 
                 <!-- 被测对象：Agent + 评测集 -->

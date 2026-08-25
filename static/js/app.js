@@ -3339,8 +3339,28 @@ const PIPELINE_STEP_LABELS = {
     gate: '质量门禁',
 };
 
+let pikociBaseUrl = '';
+
+async function loadPikociUrl() {
+    try {
+        const result = await apiCall('/system/config');
+        const url = (result.data && result.data.pikoci_url) || '';
+        pikociBaseUrl = String(url).replace(/\/+$/, '');
+    } catch (e) {
+        pikociBaseUrl = '';
+    }
+}
+
+function openPikoci() {
+    if (!pikociBaseUrl) {
+        showToast('未配置 PikoCI 服务地址，请到「系统设置 → PikoCI 编排引擎连接」填写', 'error');
+        return;
+    }
+    window.open(pikociBaseUrl, '_blank', 'noopener');
+}
+
 async function loadPipelinePage() {
-    await Promise.all([loadPipelineTarget(), loadPipelineSelection(), loadPipelineHistory(), loadPipelineLatestReport()]);
+    await Promise.all([loadPipelineTarget(), loadPipelineSelection(), loadPipelineHistory(), loadPipelineLatestReport(), loadPikociUrl()]);
     // When arriving from a task's "持续评测" button, scroll to / highlight the
     // metrics-selection card (the agent+evalset were already auto-saved).
     if (pipelineFocusCard === 'selection') {

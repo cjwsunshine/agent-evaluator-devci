@@ -438,6 +438,23 @@ button:disabled,
     letter-spacing: -0.04em;
 }
 
+.page-header-titles {
+    display: flex;
+    flex-direction: column;
+    gap: var(--space-1);
+    min-width: 0;
+}
+
+.page-header-titles p {
+    margin-top: 0;
+}
+
+.btn-open-pikoci {
+    flex-shrink: 0;
+    white-space: nowrap;
+    font-weight: 600;
+}
+
 .page-title-en {
     display: inline-block;
     margin-left: 10px;
